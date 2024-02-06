@@ -1,8 +1,7 @@
-use iced_graphics::widget::canvas::{self, Fill, Frame, LineCap, Path, Stroke};
-use iced_graphics::Primitive;
-use iced_native::{Color, Point, Size, Vector};
+use iced::widget::canvas::{self, Fill, Frame, LineCap, Path, Stroke};
+use iced::{Color, Point, Vector};
 
-use super::PrimitiveCache;
+use super::Cache;
 use crate::core::Normal;
 use crate::native::tick_marks;
 use crate::style::tick_marks::{Appearance, Shape};
@@ -234,7 +233,8 @@ fn max_length(style: &Appearance) -> f32 {
 /// * `inverse` - Whether to inverse the positions of the tick marks (true) or
 /// not (false).
 #[allow(clippy::too_many_arguments)]
-pub fn draw_radial_tick_marks(
+pub fn draw_radial_tick_marks<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     center: Point,
     radius: f32,
     start_angle: f32,
@@ -243,9 +243,10 @@ pub fn draw_radial_tick_marks(
     tick_marks: &tick_marks::Group,
     style: &Appearance,
     inverse: bool,
-    cache: &PrimitiveCache,
-) -> Primitive {
-    cache.cached_radial(
+    cache: &Cache,
+) {
+    cache.draw_cached_radial(
+        renderer,
         center,
         radius,
         start_angle,
@@ -254,21 +255,17 @@ pub fn draw_radial_tick_marks(
         tick_marks,
         *style,
         inverse,
-        || {
+        |frame| {
             let frame_radius = if inside {
                 radius
             } else {
                 radius + max_length(style)
             };
 
-            let frame_size = frame_radius * 2.0;
-
-            let mut frame = Frame::new(Size::new(frame_size, frame_size));
-
             frame.translate(Vector::new(frame_radius, frame_radius));
 
             draw_tier(
-                &mut frame,
+                frame,
                 radius,
                 start_angle,
                 angle_span,
@@ -278,7 +275,7 @@ pub fn draw_radial_tick_marks(
                 inverse,
             );
             draw_tier(
-                &mut frame,
+                frame,
                 radius,
                 start_angle,
                 angle_span,
@@ -288,7 +285,7 @@ pub fn draw_radial_tick_marks(
                 inverse,
             );
             draw_tier(
-                &mut frame,
+                frame,
                 radius,
                 start_angle,
                 angle_span,
@@ -298,13 +295,10 @@ pub fn draw_radial_tick_marks(
                 inverse,
             );
 
-            Primitive::Translate {
-                translation: Vector::new(
-                    center.x - frame_radius,
-                    center.y - frame_radius,
-                ),
-                content: Box::new(frame.into_geometry().into_primitive()),
-            }
+            frame.translate(Vector::new(
+                center.x - frame_radius,
+                center.y - frame_radius,
+            ));
         },
     )
 }

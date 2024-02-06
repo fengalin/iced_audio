@@ -1,15 +1,17 @@
 //! `iced` renderer for tick marks
 
-use super::PrimitiveCache;
+use super::Cache;
 use crate::core::Normal;
 use crate::native::tick_marks;
 use crate::style::tick_marks::{Appearance, Placement, Shape};
-use iced_core::{Background, Color, Rectangle};
-use iced_graphics::Primitive;
+
+use iced::widget::canvas::{Path, Stroke};
+use iced::{Color, Point, Rectangle};
+use iced_renderer::geometry::Frame;
 
 #[allow(clippy::too_many_arguments)]
 fn draw_vertical_lines(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     tick_marks: &[Normal],
     bounds_y: f32,
     bounds_height: f32,
@@ -20,44 +22,39 @@ fn draw_vertical_lines(
     inverse: bool,
 ) {
     let start_y = bounds_y - (width / 2.0);
-    let back_color = Background::Color(color);
 
     if inverse {
         for tick_mark in tick_marks {
-            primitives.push(Primitive::Quad {
-                bounds: Rectangle {
-                    x,
-                    y: (start_y + tick_mark.scale(bounds_height)),
+            let y = start_y + tick_mark.scale(bounds_height);
+
+            frame.stroke(
+                &Path::line(Point { x, y }, Point { x, y: y + width }),
+                Stroke {
+                    style: color.into(),
                     width: length,
-                    height: width,
+                    ..Default::default()
                 },
-                background: back_color,
-                border_radius: [0.0; 4],
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-            });
+            );
         }
     } else {
         for tick_mark in tick_marks {
-            primitives.push(Primitive::Quad {
-                bounds: Rectangle {
-                    x,
-                    y: (start_y + tick_mark.scale_inv(bounds_height)),
+            let y = start_y + tick_mark.scale_inv(bounds_height);
+
+            frame.stroke(
+                &Path::line(Point { x, y }, Point { x, y: y + width }),
+                Stroke {
+                    style: color.into(),
                     width: length,
-                    height: width,
+                    ..Default::default()
                 },
-                background: back_color,
-                border_radius: [0.0; 4],
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-            });
+            );
         }
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 fn draw_vertical_circles(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     tick_marks: &[Normal],
     bounds_y: f32,
     bounds_height: f32,
@@ -66,47 +63,39 @@ fn draw_vertical_circles(
     color: Color,
     inverse: bool,
 ) {
-    let diameter = diameter;
     let radius = diameter / 2.0;
     let start_y = bounds_y - radius;
-    let back_color = Background::Color(color);
 
     if inverse {
         for tick_mark in tick_marks {
-            primitives.push(Primitive::Quad {
-                bounds: Rectangle {
-                    x,
-                    y: (start_y + tick_mark.scale(bounds_height)),
-                    width: diameter,
-                    height: diameter,
+            let y = start_y + tick_mark.scale(bounds_height);
+
+            frame.stroke(
+                &Path::circle(Point { x, y }, radius),
+                Stroke {
+                    style: color.into(),
+                    ..Default::default()
                 },
-                background: back_color,
-                border_radius: [radius; 4],
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-            });
+            );
         }
     } else {
         for tick_mark in tick_marks {
-            primitives.push(Primitive::Quad {
-                bounds: Rectangle {
-                    x,
-                    y: (start_y + tick_mark.scale_inv(bounds_height)),
-                    width: diameter,
-                    height: diameter,
+            let y = start_y + tick_mark.scale_inv(bounds_height);
+
+            frame.stroke(
+                &Path::circle(Point { x, y }, radius),
+                Stroke {
+                    style: color.into(),
+                    ..Default::default()
                 },
-                background: back_color,
-                border_radius: [radius; 4],
-                border_width: 0.0,
-                border_color: Color::TRANSPARENT,
-            });
+            );
         }
     }
 }
 
 #[inline]
 fn draw_vertical_left_aligned_tier(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: Option<&Vec<Normal>>,
@@ -122,7 +111,7 @@ fn draw_vertical_left_aligned_tier(
                 color,
             } => {
                 draw_vertical_lines(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -135,7 +124,7 @@ fn draw_vertical_left_aligned_tier(
             }
             Shape::Circle { diameter, color } => {
                 draw_vertical_circles(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -150,7 +139,7 @@ fn draw_vertical_left_aligned_tier(
 }
 
 fn draw_vertical_left_aligned(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: &tick_marks::Group,
@@ -158,7 +147,7 @@ fn draw_vertical_left_aligned(
     inverse: bool,
 ) {
     draw_vertical_left_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_1(),
@@ -166,7 +155,7 @@ fn draw_vertical_left_aligned(
         inverse,
     );
     draw_vertical_left_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_2(),
@@ -174,7 +163,7 @@ fn draw_vertical_left_aligned(
         inverse,
     );
     draw_vertical_left_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_3(),
@@ -185,7 +174,7 @@ fn draw_vertical_left_aligned(
 
 #[inline]
 fn draw_vertical_right_aligned_tier(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: Option<&Vec<Normal>>,
@@ -201,7 +190,7 @@ fn draw_vertical_right_aligned_tier(
                 color,
             } => {
                 draw_vertical_lines(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -214,7 +203,7 @@ fn draw_vertical_right_aligned_tier(
             }
             Shape::Circle { diameter, color } => {
                 draw_vertical_circles(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -229,7 +218,7 @@ fn draw_vertical_right_aligned_tier(
 }
 
 fn draw_vertical_right_aligned(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: &tick_marks::Group,
@@ -237,7 +226,7 @@ fn draw_vertical_right_aligned(
     inverse: bool,
 ) {
     draw_vertical_right_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_1(),
@@ -245,7 +234,7 @@ fn draw_vertical_right_aligned(
         inverse,
     );
     draw_vertical_right_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_2(),
@@ -253,7 +242,7 @@ fn draw_vertical_right_aligned(
         inverse,
     );
     draw_vertical_right_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_3(),
@@ -264,7 +253,7 @@ fn draw_vertical_right_aligned(
 
 #[inline]
 fn draw_vertical_center_aligned_tier(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: Option<&Vec<Normal>>,
@@ -287,7 +276,7 @@ fn draw_vertical_center_aligned_tier(
                 };
 
                 draw_vertical_lines(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -306,7 +295,7 @@ fn draw_vertical_center_aligned_tier(
                 };
 
                 draw_vertical_circles(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -321,7 +310,7 @@ fn draw_vertical_center_aligned_tier(
 }
 
 fn draw_vertical_center_aligned(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: &tick_marks::Group,
@@ -330,7 +319,7 @@ fn draw_vertical_center_aligned(
     inverse: bool,
 ) {
     draw_vertical_center_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_1(),
@@ -339,7 +328,7 @@ fn draw_vertical_center_aligned(
         inverse,
     );
     draw_vertical_center_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_2(),
@@ -348,7 +337,7 @@ fn draw_vertical_center_aligned(
         inverse,
     );
     draw_vertical_center_aligned_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_3(),
@@ -361,7 +350,7 @@ fn draw_vertical_center_aligned(
 #[inline]
 #[allow(clippy::too_many_arguments)]
 fn draw_vertical_center_aligned_split_tier(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: Option<&Vec<Normal>>,
@@ -388,7 +377,7 @@ fn draw_vertical_center_aligned_split_tier(
                 let right_x = x + (gap / 2.0);
 
                 draw_vertical_lines(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -399,7 +388,7 @@ fn draw_vertical_center_aligned_split_tier(
                     inverse,
                 );
                 draw_vertical_lines(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -423,7 +412,7 @@ fn draw_vertical_center_aligned_split_tier(
                 let right_x = x + (gap / 2.0);
 
                 draw_vertical_circles(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -433,7 +422,7 @@ fn draw_vertical_center_aligned_split_tier(
                     inverse,
                 );
                 draw_vertical_circles(
-                    primitives,
+                    frame,
                     tick_marks,
                     bounds.y,
                     bounds.height,
@@ -449,7 +438,7 @@ fn draw_vertical_center_aligned_split_tier(
 
 #[allow(clippy::too_many_arguments)]
 fn draw_vertical_center_aligned_split(
-    primitives: &mut Vec<Primitive>,
+    frame: &mut Frame,
     bounds: &Rectangle,
     x: f32,
     tick_marks: &tick_marks::Group,
@@ -459,7 +448,7 @@ fn draw_vertical_center_aligned_split(
     inverse: bool,
 ) {
     draw_vertical_center_aligned_split_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_1(),
@@ -469,7 +458,7 @@ fn draw_vertical_center_aligned_split(
         inverse,
     );
     draw_vertical_center_aligned_split_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_2(),
@@ -479,7 +468,7 @@ fn draw_vertical_center_aligned_split(
         inverse,
     );
     draw_vertical_center_aligned_split_tier(
-        primitives,
+        frame,
         bounds,
         x,
         tick_marks.tier_3(),
@@ -498,169 +487,122 @@ fn draw_vertical_center_aligned_split(
 /// * placement - The placement of the tick marks relative to the bounds.
 /// * inverse - Whether to inverse the positions of the tick marks (true) or
 /// not (false).
-pub fn draw_vertical_tick_marks(
+pub fn draw_vertical_tick_marks<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     bounds: &Rectangle,
     tick_marks: &tick_marks::Group,
     style: &Appearance,
     placement: &Placement,
     inverse: bool,
-    cache: &PrimitiveCache,
-) -> Primitive {
-    cache.cached_linear(
+    cache: &Cache,
+) {
+    cache.draw_cached_linear(
+        renderer,
         *bounds,
         tick_marks,
         *style,
         *placement,
         inverse,
-        || {
-            let primitives = match placement {
-                Placement::BothSides { offset, inside } => {
-                    let bounds = offset.offset_rect(bounds);
+        |frame| match placement {
+            Placement::BothSides { offset, inside } => {
+                let bounds = offset.offset_rect(bounds);
 
-                    let mut primitives: Vec<Primitive> =
-                        Vec::with_capacity(tick_marks.len() * 2);
-
-                    if *inside {
-                        draw_vertical_left_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                        draw_vertical_right_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x + bounds.width,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                    } else {
-                        draw_vertical_right_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                        draw_vertical_left_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x + bounds.width,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                    }
-
-                    primitives
-                }
-                Placement::LeftOrTop { offset, inside } => {
-                    let bounds = offset.offset_rect(bounds);
-
-                    let mut primitives: Vec<Primitive> =
-                        Vec::with_capacity(tick_marks.len());
-
-                    if *inside {
-                        draw_vertical_left_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                    } else {
-                        draw_vertical_right_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                    }
-
-                    primitives
-                }
-                Placement::RightOrBottom { offset, inside } => {
-                    let bounds = offset.offset_rect(bounds);
-
-                    let mut primitives: Vec<Primitive> =
-                        Vec::with_capacity(tick_marks.len());
-
-                    if *inside {
-                        draw_vertical_right_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x + bounds.width,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                    } else {
-                        draw_vertical_left_aligned(
-                            &mut primitives,
-                            &bounds,
-                            bounds.x + bounds.width,
-                            tick_marks,
-                            style,
-                            inverse,
-                        );
-                    }
-
-                    primitives
-                }
-                Placement::Center {
-                    offset,
-                    fill_length,
-                } => {
-                    let bounds = offset.offset_rect(bounds);
-
-                    let mut primitives: Vec<Primitive> =
-                        Vec::with_capacity(tick_marks.len());
-
-                    draw_vertical_center_aligned(
-                        &mut primitives,
+                if *inside {
+                    draw_vertical_left_aligned(
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
+                    );
+                    draw_vertical_right_aligned(
+                        frame,
                         &bounds,
-                        bounds.center_x(),
+                        bounds.x + bounds.width,
                         tick_marks,
                         style,
-                        *fill_length,
                         inverse,
                     );
-
-                    primitives
-                }
-                Placement::CenterSplit {
-                    offset,
-                    fill_length,
-                    gap,
-                } => {
-                    let bounds = offset.offset_rect(bounds);
-
-                    let mut primitives: Vec<Primitive> =
-                        Vec::with_capacity(tick_marks.len() * 2);
-
-                    draw_vertical_center_aligned_split(
-                        &mut primitives,
+                } else {
+                    draw_vertical_right_aligned(
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
+                    );
+                    draw_vertical_left_aligned(
+                        frame,
                         &bounds,
-                        bounds.center_x(),
+                        bounds.x + bounds.width,
                         tick_marks,
                         style,
-                        *fill_length,
-                        *gap,
                         inverse,
                     );
-
-                    primitives
                 }
-            };
+            }
+            Placement::LeftOrTop { offset, inside } => {
+                let bounds = offset.offset_rect(bounds);
 
-            Primitive::Group { primitives }
+                if *inside {
+                    draw_vertical_left_aligned(
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
+                    );
+                } else {
+                    draw_vertical_right_aligned(
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
+                    );
+                }
+            }
+            Placement::RightOrBottom { offset, inside } => {
+                let bounds = offset.offset_rect(bounds);
+
+                if *inside {
+                    draw_vertical_right_aligned(
+                        frame,
+                        &bounds,
+                        bounds.x + bounds.width,
+                        tick_marks,
+                        style,
+                        inverse,
+                    );
+                } else {
+                    draw_vertical_left_aligned(
+                        frame,
+                        &bounds,
+                        bounds.x + bounds.width,
+                        tick_marks,
+                        style,
+                        inverse,
+                    );
+                }
+            }
+            Placement::Center {
+                offset,
+                fill_length,
+            } => {
+                let bounds = offset.offset_rect(bounds);
+
+                draw_vertical_center_aligned(
+                    frame,
+                    &bounds,
+                    bounds.center_x(),
+                    tick_marks,
+                    style,
+                    *fill_length,
+                    inverse,
+                );
+            }
+            Placement::CenterSplit {
+                offset,
+                fill_length,
+                gap,
+            } => {
+                let bounds = offset.offset_rect(bounds);
+
+                draw_vertical_center_aligned_split(
+                    frame,
+                    &bounds,
+                    bounds.center_x(),
+                    tick_marks,
+                    style,
+                    *fill_length,
+                    *gap,
+                    inverse,
+                );
+            }
         },
-    )
+    );
 }

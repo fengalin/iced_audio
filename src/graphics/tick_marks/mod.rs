@@ -1,8 +1,10 @@
 //! Structs for constructing a group of tick marks.
 
-use iced_native::{Point, Rectangle};
+use iced::widget::canvas;
+use iced::{Point, Rectangle, Size};
+use iced_renderer::geometry::{self, Frame};
+
 use std::cell::RefCell;
-use std::sync::Arc;
 
 pub use crate::native::tick_marks::*;
 pub use crate::style::tick_marks::*;
@@ -15,9 +17,9 @@ pub use horizontal::*;
 pub use radial::*;
 pub use vertical::*;
 
-#[derive(Clone)]
-struct PrimitiveCacheData {
-    pub cache: Arc<iced_graphics::Primitive>,
+struct CacheData {
+    // FIXME fengalin: the fieds probably don't need to be pub
+    pub cache: geometry::Cache,
 
     pub bounds: Rectangle,
     pub tick_marks_hash: u64,
@@ -30,12 +32,13 @@ struct PrimitiveCacheData {
     pub start_angle: f32,
     pub angle_span: f32,
     pub inside: bool,
+    size: Size,
 }
 
-impl Default for PrimitiveCacheData {
+impl Default for CacheData {
     fn default() -> Self {
         Self {
-            cache: Arc::new(iced_graphics::Primitive::None),
+            cache: geometry::Cache::default(),
 
             bounds: Rectangle::default(),
             tick_marks_hash: 0,
@@ -48,33 +51,35 @@ impl Default for PrimitiveCacheData {
             start_angle: 0.0,
             angle_span: 0.0,
             inside: false,
+            size: Size::ZERO,
         }
     }
 }
 
-impl std::fmt::Debug for PrimitiveCacheData {
+impl std::fmt::Debug for CacheData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "")
     }
 }
 
 /// A cache for tick mark primitives.
-#[derive(Debug, Clone)]
-pub struct PrimitiveCache {
-    data: RefCell<PrimitiveCacheData>,
+#[derive(Debug, Default)]
+pub struct Cache {
+    data: RefCell<CacheData>,
 }
 
-impl PrimitiveCache {
+impl Cache {
     /// Cache and retrieve linear tick marks.
-    pub fn cached_linear<F: Fn() -> iced_graphics::Primitive>(
+    pub fn draw_cached_linear<F: FnOnce(&mut Frame), Theme>(
         &self,
+        renderer: &mut iced::Renderer<Theme>,
         bounds: Rectangle,
         tick_marks: &Group,
         style: Appearance,
         placement: Placement,
         inverse: bool,
         builder: F,
-    ) -> iced_graphics::Primitive {
+    ) {
         let mut data = self.data.borrow_mut();
 
         if !(data.bounds == bounds
@@ -88,19 +93,22 @@ impl PrimitiveCache {
             data.style = style;
             data.placement = placement;
             data.inverse = inverse;
+            data.size = bounds.size();
 
-            data.cache = Arc::new(builder());
+            data.cache.clear();
         }
 
-        iced_graphics::Primitive::Cached {
-            cache: Arc::clone(&data.cache),
-        }
+        canvas::Renderer::draw(
+            renderer,
+            vec![data.cache.draw(renderer, data.size, builder)],
+        );
     }
 
     /// Cache and retrieve radial tick marks.
     #[allow(clippy::too_many_arguments)]
-    pub fn cached_radial<F: Fn() -> iced_graphics::Primitive>(
+    pub fn draw_cached_radial<F: FnOnce(&mut Frame), Theme>(
         &self,
+        renderer: &mut iced::Renderer<Theme>,
         center: Point,
         radius: f32,
         start_angle: f32,
@@ -110,7 +118,7 @@ impl PrimitiveCache {
         style: Appearance,
         inverse: bool,
         builder: F,
-    ) -> iced_graphics::Primitive {
+    ) {
         let mut data = self.data.borrow_mut();
 
         if !(data.center == center
@@ -131,19 +139,45 @@ impl PrimitiveCache {
             data.style = style;
             data.inverse = inverse;
 
-            data.cache = Arc::new(builder());
+            let frame_radius = if inside {
+                radius
+            } else {
+                radius + max_length(&style)
+            };
+
+            let frame_size = frame_radius * 2.0;
+
+            data.size = Size::new(frame_size, frame_size);
+
+            data.cache.clear();
         }
 
-        iced_graphics::Primitive::Cached {
-            cache: Arc::clone(&data.cache),
-        }
+        canvas::Renderer::draw(
+            renderer,
+            vec![data.cache.draw(renderer, data.size, builder)],
+        );
     }
 }
 
-impl Default for PrimitiveCache {
-    fn default() -> Self {
-        Self {
-            data: RefCell::new(PrimitiveCacheData::default()),
-        }
-    }
+// FIXME fengalin duplicate from super::radial.rs
+fn max_length(style: &Appearance) -> f32 {
+    let length_1 = match style.tier_1 {
+        Shape::None => 0.0,
+        Shape::Line { length, .. } => length,
+        Shape::Circle { diameter, .. } => diameter,
+    };
+
+    let length_2 = match style.tier_1 {
+        Shape::None => 0.0,
+        Shape::Line { length, .. } => length,
+        Shape::Circle { diameter, .. } => diameter,
+    };
+
+    let length_3 = match style.tier_1 {
+        Shape::None => 0.0,
+        Shape::Line { length, .. } => length,
+        Shape::Circle { diameter, .. } => diameter,
+    };
+
+    length_1.max(length_2).max(length_3)
 }

@@ -5,8 +5,8 @@
 
 use crate::core::Normal;
 use crate::native::ramp;
-use iced_core::{Background, Point, Rectangle, Size, Vector};
-use iced_graphics::widget::canvas::{self, Frame, LineCap, Path, Stroke};
+use iced::widget::canvas::{self, Frame, LineCap, Path, Stroke};
+use iced::{mouse, Background, Point, Rectangle, Size, Vector};
 use iced_graphics::Primitive;
 
 pub use crate::native::ramp::RampDirection;
@@ -18,16 +18,16 @@ pub use crate::style::ramp::{Appearance, StyleSheet};
 /// [`Param`]: ../../core/param/trait.Param.html
 /// [`Ramp`]: struct.Ramp.html
 pub type Ramp<'a, Message, Theme> =
-    ramp::Ramp<'a, Message, crate::Renderer<Theme>>;
+    ramp::Ramp<'a, Message, iced::Renderer<Theme>>;
 
-impl<Theme> ramp::Renderer for crate::Renderer<Theme>
+impl<Theme> ramp::Renderer for iced::Renderer<Theme>
 where
     Self::Theme: StyleSheet,
 {
     fn draw(
         &mut self,
-        bounds: Rectangle,
-        cursor_position: Point,
+        bounds: iced::Rectangle,
+        cursor: mouse::Cursor,
         normal: Normal,
         is_dragging: bool,
         style_sheet: &dyn StyleSheet<
@@ -36,7 +36,7 @@ where
         style: &<Self::Theme as StyleSheet>::Style,
         direction: RampDirection,
     ) {
-        let is_mouse_over = bounds.contains(cursor_position);
+        let is_mouse_over = bounds.contains(cursor);
 
         let appearance = if is_dragging {
             style_sheet.dragging(style)
@@ -90,7 +90,7 @@ where
                     let path = Path::new(|p| p.quadratic_curve_to(control, to));
 
                     let mut frame =
-                        Frame::new(Size::new(range_width, range_height));
+                        Frame::new(self, Size::new(range_width, range_height));
 
                     frame.translate(Vector::new(0.0, range_height));
 
@@ -125,7 +125,7 @@ where
                     });
 
                     let mut frame =
-                        Frame::new(Size::new(range_width, range_height));
+                        Frame::new(self, Size::new(range_width, range_height));
 
                     frame.translate(Vector::new(0.0, range_height));
 
@@ -156,7 +156,7 @@ where
                     );
 
                     let mut frame =
-                        Frame::new(Size::new(range_width, range_height));
+                        Frame::new(self, Size::new(range_width, range_height));
 
                     frame.translate(Vector::new(0.0, range_height));
 
@@ -193,7 +193,7 @@ where
                     });
 
                     let mut frame =
-                        Frame::new(Size::new(range_width, range_height));
+                        Frame::new(self, Size::new(range_width, range_height));
 
                     frame.translate(Vector::new(0.0, range_height));
 
@@ -229,7 +229,7 @@ where
                     });
 
                     let mut frame =
-                        Frame::new(Size::new(range_width, range_height));
+                        Frame::new(self, Size::new(range_width, range_height));
 
                     frame.translate(Vector::new(0.0, range_height));
 
@@ -260,7 +260,7 @@ where
                     );
 
                     let mut frame =
-                        Frame::new(Size::new(range_width, range_height));
+                        Frame::new(self, Size::new(range_width, range_height));
 
                     frame.translate(Vector::new(0.0, range_height));
 

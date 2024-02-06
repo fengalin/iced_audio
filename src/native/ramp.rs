@@ -5,11 +5,16 @@
 
 use std::fmt::Debug;
 
-use iced_native::widget::tree::{self, Tree};
-use iced_native::{
-    event, keyboard, layout, mouse, touch, Clipboard, Element, Event, Layout,
-    Length, Point, Rectangle, Shell, Size, Widget,
+use iced::advanced::layout::{self, Layout};
+use iced::advanced::renderer;
+use iced::advanced::widget::tree::{self, Tree};
+use iced::advanced::widget::Widget;
+use iced::advanced::{Clipboard, Shell};
+use iced::{
+    event, keyboard, touch, Element, Event, Length, Point, Rectangle, Size,
 };
+// Need mouse via iced_core because Click is not re-exported by iced
+use iced_core::mouse;
 
 use crate::core::{Normal, NormalParam};
 use crate::native::SliderStatus;
@@ -328,10 +333,11 @@ where
         state: &mut Tree,
         event: Event,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
+        _viewport: &Rectangle,
     ) -> event::Status {
         let state = state.state.downcast_mut::<State>();
 
@@ -346,11 +352,11 @@ where
         match event {
             Event::Mouse(mouse::Event::CursorMoved { .. })
             | Event::Touch(touch::Event::FingerMoved { .. }) => {
-                if state.dragging_status.is_some() {
+                if let Some(position) = cursor.position() {
                     let normal_delta =
-                        (cursor_position.y - state.prev_drag_y) * self.scalar;
+                        (position.y - state.prev_drag_y) * self.scalar;
 
-                    state.prev_drag_y = cursor_position.y;
+                    state.prev_drag_y = position.y;
 
                     if self.move_virtual_slider(state, normal_delta).was_moved()
                     {
@@ -371,14 +377,10 @@ where
                     return event::Status::Ignored;
                 }
 
-                if layout.bounds().contains(cursor_position) {
+                if cursor.position().is_some() {
                     let lines = match delta {
-                        iced_native::mouse::ScrollDelta::Lines {
-                            y, ..
-                        } => y,
-                        iced_native::mouse::ScrollDelta::Pixels {
-                            y, ..
-                        } => {
+                        mouse::ScrollDelta::Lines { y, .. } => y,
+                        mouse::ScrollDelta::Pixels { y, .. } => {
                             if y > 0.0 {
                                 1.0
                             } else if y < 0.0 {
@@ -418,16 +420,15 @@ where
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if layout.bounds().contains(cursor_position) {
-                    let click =
-                        mouse::Click::new(cursor_position, state.last_click);
+                if let Some(position) = cursor.position() {
+                    let click = mouse::Click::new(position, state.last_click);
 
                     match click.kind() {
                         mouse::click::Kind::Single => {
                             self.maybe_fire_on_grab(shell);
 
                             state.dragging_status = Some(Default::default());
-                            state.prev_drag_y = cursor_position.y;
+                            state.prev_drag_y = position.y;
                         }
                         _ => {
                             // Reset to default
@@ -501,15 +502,15 @@ where
         state: &Tree,
         renderer: &mut Renderer,
         theme: &Renderer::Theme,
-        _style: &iced_native::renderer::Style,
+        _style: &renderer::Style,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         _viewport: &Rectangle,
     ) {
         let state = state.state.downcast_ref::<State>();
         renderer.draw(
             layout.bounds(),
-            cursor_position,
+            cursor,
             self.normal_param.value,
             state.dragging_status.is_some(),
             theme,
@@ -525,7 +526,7 @@ where
 /// able to use a [`Ramp`] in your user interface.
 ///
 /// [`Ramp`]: struct.Ramp.html
-pub trait Renderer: iced_native::Renderer
+pub trait Renderer: iced_core::Renderer
 where
     Self::Theme: StyleSheet,
 {

@@ -5,8 +5,8 @@
 
 use crate::core::Normal;
 use crate::native::xy_pad;
+use iced::{Background, Color, Point, Rectangle};
 use iced_graphics::Primitive;
-use iced_native::{Background, Color, Point, Rectangle};
 
 pub use crate::style::xy_pad::{
     Appearance, HandleCircle, HandleShape, HandleSquare, StyleSheet,
@@ -21,9 +21,9 @@ pub use crate::style::xy_pad::{
 /// [`Param`]: ../../core/param/trait.Param.html
 /// [`XYPad`]: struct.XYPad.html
 pub type XYPad<'a, Message, Theme> =
-    xy_pad::XYPad<'a, Message, crate::Renderer<Theme>>;
+    xy_pad::XYPad<'a, Message, iced::Renderer<Theme>>;
 
-impl<Theme> xy_pad::Renderer for crate::Renderer<Theme>
+impl<Theme> xy_pad::Renderer for iced::Renderer<Theme>
 where
     Self::Theme: StyleSheet,
 {

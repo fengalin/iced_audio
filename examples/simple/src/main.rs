@@ -3,8 +3,8 @@ use iced::widget::{column, container, text};
 use iced::{Alignment, Element, Length, Sandbox, Settings};
 // Import iced_audio modules.
 use iced_audio::{
-    tick_marks, FloatRange, FreqRange, HSlider, IntRange, Knob, LogDBRange,
-    Normal, NormalParam, VSlider, XYPad,
+    tick_marks, FloatRange, FreqRange, /*HSlider,*/ IntRange, Knob,
+    LogDBRange, Normal, NormalParam, /*VSlider, XYPad,*/
 };
 
 // The message when a parameter widget is moved by the user
@@ -127,6 +127,7 @@ impl Sandbox for App {
 
     fn view(&self) -> Element<Message> {
         // Create each parameter widget, passing in the current state of the widget.
+        /*
         let h_slider_widget =
             HSlider::new(self.h_slider_param, Message::HSliderInt)
                 // Add the tick mark group to this widget.
@@ -135,21 +136,24 @@ impl Sandbox for App {
         let v_slider_widget =
             VSlider::new(self.v_slider_param, Message::VSliderDB)
                 .tick_marks(&self.center_tick_mark);
-
+        */
         let knob_widget = Knob::new(self.knob_param, Message::KnobFreq);
-
+        /*
         let xy_pad_widget = XYPad::new(
             self.xy_pad_x_param,
             self.xy_pad_y_param,
             Message::XYPadFloat,
         );
+        */
 
         // Push the widgets into the iced DOM
         let content = column![
+            /*
             h_slider_widget,
             v_slider_widget,
+            */
             knob_widget,
-            xy_pad_widget,
+            //xy_pad_widget,
             container(text(&self.output_text)).width(Length::Fill),
         ]
         .max_width(300)

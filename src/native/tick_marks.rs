@@ -28,7 +28,7 @@ impl Group {
     /// [`Group`]: struct.Group.html
     pub fn from_normalized(tick_marks: &[(Normal, Tier)]) -> Self {
         use std::hash::{Hash, Hasher};
-        let mut hasher = iced_native::Hasher::default();
+        let mut hasher = iced_core::Hasher::default();
         tick_marks.len().hash(&mut hasher);
 
         let len = tick_marks.len();

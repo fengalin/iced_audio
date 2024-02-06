@@ -1,9 +1,10 @@
-use super::PrimitiveCache;
+use super::Cache;
 use crate::native::text_marks;
 use crate::style::text_marks::Appearance;
 
-use iced_core::{alignment::Horizontal, alignment::Vertical, Point, Rectangle};
-use iced_graphics::Primitive;
+use iced::widget::canvas::Text;
+use iced::widget::text::LineHeight;
+use iced_core::{alignment::Horizontal, alignment::Vertical, Point};
 
 /// Draws text marks around an arc.
 ///
@@ -19,7 +20,8 @@ use iced_graphics::Primitive;
 /// * `inverse` - Whether to inverse the positions of the text marks (true) or
 /// not (false).
 #[allow(clippy::too_many_arguments)]
-pub fn draw_radial_text_marks(
+pub fn draw_radial_text_marks<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     center: Point,
     radius: f32,
     start_angle: f32,
@@ -28,9 +30,10 @@ pub fn draw_radial_text_marks(
     style: &Appearance,
     h_char_offset: f32,
     inverse: bool,
-    cache: &PrimitiveCache,
-) -> Primitive {
-    cache.cached_radial(
+    cache: &Cache,
+) {
+    cache.draw_cached_radial(
+        renderer,
         center,
         radius,
         start_angle,
@@ -38,13 +41,10 @@ pub fn draw_radial_text_marks(
         text_marks,
         *style,
         inverse,
-        || {
-            let mut primitives: Vec<Primitive> = Vec::new();
-
+        |frame| {
             let color = style.color;
             let font = style.font;
             let text_size = f32::from(style.text_size);
-            let text_bounds_width = f32::from(style.bounds_width);
             let text_bounds_height = f32::from(style.bounds_height);
 
             let start_angle = start_angle + std::f32::consts::FRAC_PI_2;
@@ -71,23 +71,21 @@ pub fn draw_radial_text_marks(
                     offset_x += (text.len() as f32 - 1.0) * h_char_offset;
                 }
 
-                primitives.push(Primitive::Text {
+                frame.fill_text(Text {
                     content: text.clone(),
                     size: text_size,
-                    bounds: Rectangle {
+                    position: Point {
                         x: (center.x + offset_x).round(),
                         y: (center.y - (dy * radius)).round(),
-                        width: text_bounds_width,
-                        height: text_bounds_height,
                     },
+                    line_height: LineHeight::Relative(text_bounds_height),
                     color,
                     font,
                     horizontal_alignment: Horizontal::Center,
                     vertical_alignment: Vertical::Center,
-                });
+                    ..Default::default()
+                })
             }
-
-            Primitive::Group { primitives }
         },
-    )
+    );
 }

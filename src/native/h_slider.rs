@@ -4,11 +4,14 @@
 
 use std::fmt::Debug;
 
-use iced_native::widget::tree::{self, Tree};
-use iced_native::{
-    event, keyboard, layout, mouse, touch, Clipboard, Element, Event, Layout,
-    Length, Point, Rectangle, Shell, Size, Widget,
-};
+use iced::advanced::layout::{self, Layout};
+use iced::advanced::renderer;
+use iced::advanced::widget::tree::{self, Tree};
+use iced::advanced::widget::Widget;
+use iced::advanced::{Clipboard, Shell};
+use iced::{event, keyboard, touch, Element, Event, Length, Rectangle, Size};
+// Need mouse via iced_core because Click is not re-exported by iced
+use iced_core::mouse;
 
 use crate::core::{ModulationRange, Normal, NormalParam};
 use crate::native::{text_marks, tick_marks, SliderStatus};
@@ -289,8 +292,8 @@ struct State {
     continuous_normal: f32,
     pressed_modifiers: keyboard::Modifiers,
     last_click: Option<mouse::Click>,
-    tick_marks_cache: crate::graphics::tick_marks::PrimitiveCache,
-    text_marks_cache: crate::graphics::text_marks::PrimitiveCache,
+    tick_marks_cache: crate::graphics::tick_marks::Cache,
+    text_marks_cache: crate::graphics::text_marks::Cache,
 }
 
 impl State {
@@ -354,10 +357,11 @@ where
         state: &mut Tree,
         event: Event,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
+        _viewport: &Rectangle,
     ) -> event::Status {
         let state = state.state.downcast_mut::<State>();
 
@@ -373,33 +377,34 @@ where
             Event::Mouse(mouse::Event::CursorMoved { .. })
             | Event::Touch(touch::Event::FingerMoved { .. }) => {
                 if state.dragging_status.is_some() {
-                    let bounds = layout.bounds();
-                    if bounds.width > 0.0 {
-                        let normal_delta = (cursor_position.x
-                            - state.prev_drag_x)
-                            / bounds.width
-                            * -self.scalar;
+                    if let Some(position) = cursor.position() {
+                        let bounds = layout.bounds();
+                        if bounds.width > 0.0 {
+                            let normal_delta = (position.x - state.prev_drag_x)
+                                / bounds.width
+                                * -self.scalar;
 
-                        state.prev_drag_x = if cursor_position.x <= bounds.x {
-                            bounds.x
-                        } else {
-                            cursor_position.x.min(bounds.x + bounds.width)
-                        };
+                            state.prev_drag_x = if position.x <= bounds.x {
+                                bounds.x
+                            } else {
+                                position.x.min(bounds.x + bounds.width)
+                            };
 
-                        if self
-                            .move_virtual_slider(state, normal_delta)
-                            .was_moved()
-                        {
-                            self.fire_on_change(shell);
+                            if self
+                                .move_virtual_slider(state, normal_delta)
+                                .was_moved()
+                            {
+                                self.fire_on_change(shell);
 
-                            state
-                                .dragging_status
-                                .as_mut()
-                                .expect("dragging_status taken")
-                                .moved();
+                                state
+                                    .dragging_status
+                                    .as_mut()
+                                    .expect("dragging_status taken")
+                                    .moved();
+                            }
+
+                            return event::Status::Captured;
                         }
-
-                        return event::Status::Captured;
                     }
                 }
             }
@@ -408,14 +413,10 @@ where
                     return event::Status::Ignored;
                 }
 
-                if layout.bounds().contains(cursor_position) {
+                if cursor.position().is_some() {
                     let lines = match delta {
-                        iced_native::mouse::ScrollDelta::Lines {
-                            y, ..
-                        } => y,
-                        iced_native::mouse::ScrollDelta::Pixels {
-                            y, ..
-                        } => {
+                        mouse::ScrollDelta::Lines { y, .. } => y,
+                        mouse::ScrollDelta::Pixels { y, .. } => {
                             if y > 0.0 {
                                 1.0
                             } else if y < 0.0 {
@@ -455,16 +456,15 @@ where
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if layout.bounds().contains(cursor_position) {
-                    let click =
-                        mouse::Click::new(cursor_position, state.last_click);
+                if let Some(position) = cursor.position() {
+                    let click = mouse::Click::new(position, state.last_click);
 
                     match click.kind() {
                         mouse::click::Kind::Single => {
                             self.maybe_fire_on_grab(shell);
 
                             state.dragging_status = Some(Default::default());
-                            state.prev_drag_x = cursor_position.x;
+                            state.prev_drag_x = position.x;
                         }
                         _ => {
                             // Reset to default
@@ -538,15 +538,15 @@ where
         state: &Tree,
         renderer: &mut Renderer,
         theme: &Renderer::Theme,
-        _style: &iced_native::renderer::Style,
+        _style: &renderer::Style,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         _viewport: &Rectangle,
     ) {
         let state = state.state.downcast_ref::<State>();
         renderer.draw(
             layout.bounds(),
-            cursor_position,
+            cursor,
             self.normal_param.value,
             state.dragging_status.is_some(),
             self.mod_range_1,
@@ -567,7 +567,7 @@ where
 /// able to use an [`HSlider`] in your user interface.
 ///
 /// [`HSlider`]: struct.HSlider.html
-pub trait Renderer: iced_native::Renderer
+pub trait Renderer: renderer::Renderer
 where
     Self::Theme: StyleSheet,
 {
@@ -588,7 +588,7 @@ where
     fn draw(
         &mut self,
         bounds: Rectangle,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         normal: Normal,
         dragging_status: bool,
         mod_range_1: Option<&ModulationRange>,
@@ -599,8 +599,8 @@ where
             Style = <Self::Theme as StyleSheet>::Style,
         >,
         style: &<Self::Theme as StyleSheet>::Style,
-        tick_marks_cache: &crate::tick_marks::PrimitiveCache,
-        text_marks_cache: &crate::text_marks::PrimitiveCache,
+        tick_marks_cache: &crate::tick_marks::Cache,
+        text_marks_cache: &crate::text_marks::Cache,
     );
 }
 

@@ -2,10 +2,12 @@
 
 use crate::core::{KnobAngleRange, Offset};
 use crate::style::{
-    default_colors, h_slider, knob, mod_range_input, ramp, text_marks,
-    tick_marks, v_slider, xy_pad,
+    default_colors, /*h_slider,*/ knob,
+    /*mod_range_input, ramp,*/ text_marks,
+    tick_marks, /*v_slider, xy_pad,*/
 };
 
+/*
 /// The style of a HSlider.
 #[derive(Default)]
 pub enum HSlider {
@@ -13,19 +15,19 @@ pub enum HSlider {
     #[default]
     Default,
     /// A custom style.
-    Custom(Box<dyn h_slider::StyleSheet<Style = iced_native::Theme>>),
+    Custom(Box<dyn h_slider::StyleSheet<Style = iced_style::Theme>>),
 }
 
 impl<S> From<S> for HSlider
 where
-    S: 'static + h_slider::StyleSheet<Style = iced_native::Theme>,
+    S: 'static + h_slider::StyleSheet<Style = iced_style::Theme>,
 {
     fn from(val: S) -> Self {
         HSlider::Custom(Box::new(val))
     }
 }
 
-impl h_slider::StyleSheet for iced_native::Theme {
+impl h_slider::StyleSheet for iced_style::Theme {
     type Style = HSlider;
 
     fn active(&self, style: &Self::Style) -> h_slider::Appearance {
@@ -135,7 +137,7 @@ impl h_slider::StyleSheet for iced_native::Theme {
         }
     }
 }
-
+*/
 /// The style of a Knob.
 #[derive(Default)]
 pub enum Knob {
@@ -143,19 +145,19 @@ pub enum Knob {
     #[default]
     Default,
     /// A custom style.
-    Custom(Box<dyn knob::StyleSheet<Style = iced_native::Theme>>),
+    Custom(Box<dyn knob::StyleSheet<Style = iced_style::Theme>>),
 }
 
 impl<S> From<S> for Knob
 where
-    S: 'static + knob::StyleSheet<Style = iced_native::Theme>,
+    S: 'static + knob::StyleSheet<Style = iced_style::Theme>,
 {
     fn from(val: S) -> Self {
         Knob::Custom(Box::new(val))
     }
 }
 
-impl knob::StyleSheet for iced_native::Theme {
+impl knob::StyleSheet for iced_style::Theme {
     type Style = Knob;
 
     fn active(&self, style: &Self::Style) -> knob::Appearance {
@@ -260,7 +262,7 @@ impl knob::StyleSheet for iced_native::Theme {
         }
     }
 }
-
+/*
 /// The style of a [`ModRangeInput`].
 #[derive(Default)]
 pub enum ModRangeInput {
@@ -270,19 +272,19 @@ pub enum ModRangeInput {
     /// The invisible style.
     Invisible,
     /// A custom style.
-    Custom(Box<dyn mod_range_input::StyleSheet<Style = iced_native::Theme>>),
+    Custom(Box<dyn mod_range_input::StyleSheet<Style = iced_style::Theme>>),
 }
 
 impl<S> From<S> for ModRangeInput
 where
-    S: 'static + mod_range_input::StyleSheet<Style = iced_native::Theme>,
+    S: 'static + mod_range_input::StyleSheet<Style = iced_style::Theme>,
 {
     fn from(val: S) -> Self {
         ModRangeInput::Custom(Box::new(val))
     }
 }
 
-impl mod_range_input::StyleSheet for iced_native::Theme {
+impl mod_range_input::StyleSheet for iced_style::Theme {
     type Style = ModRangeInput;
 
     fn active(&self, style: &Self::Style) -> mod_range_input::Appearance {
@@ -324,19 +326,19 @@ pub enum Ramp {
     #[default]
     Default,
     /// A custom style.
-    Custom(Box<dyn ramp::StyleSheet<Style = iced_native::Theme>>),
+    Custom(Box<dyn ramp::StyleSheet<Style = iced_style::Theme>>),
 }
 
 impl<S> From<S> for Ramp
 where
-    S: 'static + ramp::StyleSheet<Style = iced_native::Theme>,
+    S: 'static + ramp::StyleSheet<Style = iced_style::Theme>,
 {
     fn from(val: S) -> Self {
         Ramp::Custom(Box::new(val))
     }
 }
 
-impl ramp::StyleSheet for iced_native::Theme {
+impl ramp::StyleSheet for iced_style::Theme {
     type Style = Ramp;
 
     fn active(&self, style: &Self::Style) -> ramp::Appearance {
@@ -368,19 +370,19 @@ pub enum VSlider {
     #[default]
     Default,
     /// A custom style.
-    Custom(Box<dyn v_slider::StyleSheet<Style = iced_native::Theme>>),
+    Custom(Box<dyn v_slider::StyleSheet<Style = iced_style::Theme>>),
 }
 
 impl<S> From<S> for VSlider
 where
-    S: 'static + v_slider::StyleSheet<Style = iced_native::Theme>,
+    S: 'static + v_slider::StyleSheet<Style = iced_style::Theme>,
 {
     fn from(val: S) -> Self {
         VSlider::Custom(Box::new(val))
     }
 }
 
-impl v_slider::StyleSheet for iced_native::Theme {
+impl v_slider::StyleSheet for iced_style::Theme {
     type Style = VSlider;
 
     fn active(&self, style: &Self::Style) -> v_slider::Appearance {
@@ -498,19 +500,19 @@ pub enum XYPad {
     #[default]
     Default,
     /// A custom style.
-    Custom(Box<dyn xy_pad::StyleSheet<Style = iced_native::Theme>>),
+    Custom(Box<dyn xy_pad::StyleSheet<Style = iced_style::Theme>>),
 }
 
 impl<S> From<S> for XYPad
 where
-    S: 'static + xy_pad::StyleSheet<Style = iced_native::Theme>,
+    S: 'static + xy_pad::StyleSheet<Style = iced_style::Theme>,
 {
     fn from(val: S) -> Self {
         XYPad::Custom(Box::new(val))
     }
 }
 
-impl xy_pad::StyleSheet for iced_native::Theme {
+impl xy_pad::StyleSheet for iced_style::Theme {
     type Style = XYPad;
 
     fn active(&self, style: &Self::Style) -> xy_pad::Appearance {
@@ -547,3 +549,4 @@ impl xy_pad::StyleSheet for iced_native::Theme {
         }
     }
 }
+*/

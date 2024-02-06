@@ -5,11 +5,16 @@
 
 use std::fmt::Debug;
 
-use iced_native::widget::tree::{self, Tree};
-use iced_native::{
-    event, keyboard, layout, mouse, touch, Clipboard, Element, Event, Layout,
-    Length, Point, Rectangle, Shell, Size, Widget,
+use iced::advanced::layout::{self, Layout};
+use iced::advanced::renderer;
+use iced::advanced::widget::tree::{self, Tree};
+use iced::advanced::widget::Widget;
+use iced::advanced::{Clipboard, Shell};
+use iced::{
+    event, keyboard, touch, Element, Event, Length, Point, Rectangle, Size,
 };
+// Need mouse via iced_core because Click is not re-exported by iced
+use iced_core::mouse;
 
 use crate::core::{Normal, NormalParam};
 use crate::native::SliderStatus;
@@ -254,17 +259,18 @@ where
         state: &mut Tree,
         event: Event,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
+        _viewport: &Rectangle,
     ) -> event::Status {
         let state = state.state.downcast_mut::<State>();
 
         match event {
             Event::Mouse(mouse::Event::CursorMoved { .. })
             | Event::Touch(touch::Event::FingerMoved { .. }) => {
-                if state.dragging_status.is_some() {
+                if let Some(position) = cursor.position() {
                     let bounds_size = {
                         if layout.bounds().width <= layout.bounds().height {
                             layout.bounds().width
@@ -273,13 +279,11 @@ where
                         }
                     };
                     if bounds_size != 0.0 {
-                        let mut movement_x = (cursor_position.x
-                            - state.prev_drag_x)
-                            / bounds_size;
+                        let mut movement_x =
+                            (position.x - state.prev_drag_x) / bounds_size;
 
-                        let mut movement_y = (cursor_position.y
-                            - state.prev_drag_y)
-                            / bounds_size;
+                        let mut movement_y =
+                            (position.y - state.prev_drag_y) / bounds_size;
 
                         if state.pressed_modifiers.contains(self.modifier_keys)
                         {
@@ -290,8 +294,8 @@ where
                         let normal_x = state.continuous_normal_x + movement_x;
                         let normal_y = state.continuous_normal_y - movement_y;
 
-                        state.prev_drag_x = cursor_position.x;
-                        state.prev_drag_y = cursor_position.y;
+                        state.prev_drag_x = position.x;
+                        state.prev_drag_y = position.y;
 
                         state.continuous_normal_x = normal_x;
                         self.normal_param_x.value.set_clipped(normal_x);
@@ -313,17 +317,16 @@ where
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if layout.bounds().contains(cursor_position) {
-                    let click =
-                        mouse::Click::new(cursor_position, state.last_click);
+                if let Some(position) = cursor.position() {
+                    let click = mouse::Click::new(position, state.last_click);
 
                     match click.kind() {
                         mouse::click::Kind::Single => {
                             self.maybe_fire_on_grab(shell);
 
                             state.dragging_status = Some(Default::default());
-                            state.prev_drag_x = cursor_position.x;
-                            state.prev_drag_y = cursor_position.y;
+                            state.prev_drag_x = position.x;
+                            state.prev_drag_y = position.y;
                             state.continuous_normal_x =
                                 self.normal_param_x.value.as_f32();
                             state.continuous_normal_y =
@@ -339,12 +342,11 @@ where
                                 }
                             };
 
-                            let normal_x = (cursor_position.x
-                                - layout.bounds().x)
-                                / bounds_size;
+                            let normal_x =
+                                (position.x - layout.bounds().x) / bounds_size;
 
                             let normal_y = 1.0
-                                - ((cursor_position.y - layout.bounds().y)
+                                - ((position.y - layout.bounds().y)
                                     / bounds_size);
 
                             state.continuous_normal_x = normal_x;
@@ -440,15 +442,15 @@ where
         state: &Tree,
         renderer: &mut Renderer,
         theme: &Renderer::Theme,
-        _style: &iced_native::renderer::Style,
+        _style: &renderer::Style,
         layout: Layout<'_>,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         _viewport: &Rectangle,
     ) {
         let state = state.state.downcast_ref::<State>();
         renderer.draw(
             layout.bounds(),
-            cursor_position,
+            cursor,
             self.normal_param_x.value,
             self.normal_param_y.value,
             state.dragging_status.is_some(),
@@ -464,7 +466,7 @@ where
 /// able to use an [`XYPad`] in your user interface.
 ///
 /// [`XYPad`]: struct.XYPad.html
-pub trait Renderer: iced_native::Renderer
+pub trait Renderer: renderer::Renderer
 where
     Self::Theme: StyleSheet,
 {

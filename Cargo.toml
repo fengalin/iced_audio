@@ -24,15 +24,11 @@ members = [
 
 [features]
 default = ["wgpu"]
-glow = ["iced_glow"]
-wgpu = ["iced_wgpu"]
+wgpu = ["iced/wgpu"]
 
 [dependencies]
-iced_core = "0.9"
-iced_glow = { version = "0.8", optional = true }
-iced_graphics = { version = "0.8", features = ["canvas"] }
-iced_native = "0.10"
-iced_wgpu = { version = "0.10", optional = true }
-
-[dev-dependencies]
-iced = "0.9"
+iced = { version = "0.10", features = ["advanced", "canvas"] }
+iced_core = "0.10"
+iced_graphics = "0.9"
+iced_renderer = "0.1"
+iced_style = "0.9"

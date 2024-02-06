@@ -7,9 +7,13 @@ use std::cmp::Ordering;
 use crate::core::{ModulationRange, Normal};
 use crate::graphics::{text_marks, tick_marks};
 use crate::native::knob;
-use iced_graphics::widget::canvas::{self, path::Arc, Frame, Path, Stroke};
-use iced_graphics::Primitive;
-use iced_native::{Background, Point, Rectangle, Size, Vector};
+
+use iced::advanced;
+use iced::advanced::renderer::Quad;
+use iced::widget::canvas::{self, path::Arc, Frame, Path, Stroke};
+use iced::{Background, Point, Rectangle, Size, Vector};
+// Need mouse via iced_core because Click is not re-exported by iced
+use iced_core::mouse;
 
 pub use crate::style::knob::{
     Appearance, ArcAppearance, ArcBipolarAppearance, CircleAppearance,
@@ -44,16 +48,16 @@ struct KnobInfo {
 ///
 /// [`Param`]: ../../core/param/struct.Param.html
 pub type Knob<'a, Message, Theme> =
-    knob::Knob<'a, Message, crate::Renderer<Theme>>;
+    knob::Knob<'a, Message, iced::Renderer<Theme>>;
 
-impl<Theme> knob::Renderer for crate::Renderer<Theme>
+impl<Theme> knob::Renderer for iced::Renderer<Theme>
 where
     Self::Theme: StyleSheet,
 {
     fn draw(
         &mut self,
         bounds: Rectangle,
-        cursor_position: Point,
+        cursor: mouse::Cursor,
         normal: Normal,
         bipolar_center: Option<Normal>,
         is_dragging: bool,
@@ -65,10 +69,11 @@ where
             Style = <Self::Theme as StyleSheet>::Style,
         >,
         style: &<Self::Theme as StyleSheet>::Style,
-        tick_marks_cache: &tick_marks::PrimitiveCache,
-        text_marks_cache: &text_marks::PrimitiveCache,
+        tick_marks_cache: &tick_marks::Cache,
+        text_marks_cache: &text_marks::Cache,
     ) {
-        let is_mouse_over = bounds.contains(cursor_position);
+        let is_mouse_over =
+            cursor.position().map_or(false, |pos| bounds.contains(pos));
 
         let angle_range = style_sheet.angle_range(style);
 
@@ -142,8 +147,9 @@ where
             value_angle,
         };
 
-        self.draw_primitive(match appearance {
+        match appearance {
             Appearance::Circle(style) => draw_circle_style(
+                self,
                 &knob_info,
                 style,
                 &value_markers,
@@ -151,6 +157,7 @@ where
                 text_marks_cache,
             ),
             Appearance::Arc(style) => draw_arc_style(
+                self,
                 &knob_info,
                 style,
                 &value_markers,
@@ -158,276 +165,157 @@ where
                 text_marks_cache,
             ),
             Appearance::ArcBipolar(style) => draw_arc_bipolar_style(
+                self,
                 &knob_info,
                 style,
                 &value_markers,
                 tick_marks_cache,
                 text_marks_cache,
             ),
-        })
+        }
     }
 }
 
-fn draw_value_markers(
+fn draw_value_markers<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     knob_info: &KnobInfo,
     value_markers: &ValueMarkers<'_>,
-    tick_marks_cache: &tick_marks::PrimitiveCache,
-    text_marks_cache: &text_marks::PrimitiveCache,
-) -> (Primitive, Primitive, Primitive, Primitive, Primitive) {
-    (
-        draw_tick_marks(
-            knob_info,
-            value_markers.tick_marks,
-            &value_markers.tick_marks_style,
-            tick_marks_cache,
-        ),
-        draw_text_marks(
-            knob_info,
-            value_markers.text_marks,
-            &value_markers.text_marks_style,
-            text_marks_cache,
-        ),
-        draw_value_arc(knob_info, &value_markers.value_arc_style),
-        draw_mod_range_arc(
-            knob_info,
-            &value_markers.mod_range_style_1,
-            value_markers.mod_range_1,
-        ),
-        draw_mod_range_arc(
-            knob_info,
-            &value_markers.mod_range_style_2,
-            value_markers.mod_range_2,
-        ),
-    )
+    tick_marks_cache: &tick_marks::Cache,
+    text_marks_cache: &text_marks::Cache,
+) {
+    draw_tick_marks(
+        renderer,
+        knob_info,
+        value_markers.tick_marks,
+        &value_markers.tick_marks_style,
+        tick_marks_cache,
+    );
+
+    draw_text_marks(
+        renderer,
+        knob_info,
+        value_markers.text_marks,
+        &value_markers.text_marks_style,
+        text_marks_cache,
+    );
+
+    draw_value_arc(renderer, knob_info, &value_markers.value_arc_style);
+
+    draw_mod_range_arc(
+        renderer,
+        knob_info,
+        &value_markers.mod_range_style_1,
+        value_markers.mod_range_1,
+    );
+
+    draw_mod_range_arc(
+        renderer,
+        knob_info,
+        &value_markers.mod_range_style_2,
+        value_markers.mod_range_2,
+    );
 }
 
-fn draw_tick_marks(
+fn draw_tick_marks<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     knob_info: &KnobInfo,
     tick_marks: Option<&tick_marks::Group>,
     style: &Option<TickMarksAppearance>,
-    tick_marks_cache: &tick_marks::PrimitiveCache,
-) -> Primitive {
-    if let Some(tick_marks) = tick_marks {
-        if let Some(style) = style {
-            tick_marks::draw_radial_tick_marks(
-                knob_info.bounds.center(),
-                knob_info.radius + style.offset,
-                knob_info.start_angle + std::f32::consts::FRAC_PI_2,
-                knob_info.angle_span,
-                false,
-                tick_marks,
-                &style.style,
-                false,
-                tick_marks_cache,
-            )
-        } else {
-            Primitive::None
-        }
-    } else {
-        Primitive::None
-    }
+    tick_marks_cache: &tick_marks::Cache,
+) {
+    let Some(tick_marks) = tick_marks else { return };
+    let Some(style) = style else { return };
+
+    tick_marks::draw_radial_tick_marks(
+        renderer,
+        knob_info.bounds.center(),
+        knob_info.radius + style.offset,
+        knob_info.start_angle + std::f32::consts::FRAC_PI_2,
+        knob_info.angle_span,
+        false,
+        tick_marks,
+        &style.style,
+        false,
+        tick_marks_cache,
+    )
 }
 
-fn draw_text_marks(
+fn draw_text_marks<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     knob_info: &KnobInfo,
     text_marks: Option<&text_marks::Group>,
     style: &Option<TextMarksAppearance>,
-    text_marks_cache: &text_marks::PrimitiveCache,
-) -> Primitive {
-    if let Some(text_marks) = text_marks {
-        if let Some(style) = style {
-            text_marks::draw_radial_text_marks(
-                Point::new(
-                    knob_info.bounds.center_x(),
-                    knob_info.bounds.center_y() + style.v_offset,
-                ),
-                knob_info.radius + style.offset,
-                knob_info.start_angle,
-                knob_info.angle_span,
-                text_marks,
-                &style.style,
-                style.h_char_offset,
-                false,
-                text_marks_cache,
-            )
-        } else {
-            Primitive::None
-        }
-    } else {
-        Primitive::None
-    }
+    text_marks_cache: &text_marks::Cache,
+) {
+    let Some(text_marks) = text_marks else { return };
+    let Some(style) = style else { return };
+
+    text_marks::draw_radial_text_marks(
+        renderer,
+        Point::new(
+            knob_info.bounds.center_x(),
+            knob_info.bounds.center_y() + style.v_offset,
+        ),
+        knob_info.radius + style.offset,
+        knob_info.start_angle,
+        knob_info.angle_span,
+        text_marks,
+        &style.style,
+        style.h_char_offset,
+        false,
+        text_marks_cache,
+    );
 }
 
-fn draw_value_arc(
+fn draw_value_arc<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     knob_info: &KnobInfo,
     style: &Option<ValueArcAppearance>,
-) -> Primitive {
-    if let Some(style) = style {
-        let half_width = style.width / 2.0;
+) {
+    let Some(style) = style else { return };
 
-        let end_angle = knob_info.start_angle + knob_info.angle_span;
-        let arc_radius = knob_info.radius + style.offset + half_width;
+    let half_width = style.width / 2.0;
 
-        let half_frame_size = (arc_radius + half_width).ceil();
-        let frame_size = half_frame_size * 2.0;
-        let frame_offset = half_frame_size - knob_info.radius;
-        let center_point = Point::new(half_frame_size, half_frame_size);
+    let end_angle = knob_info.start_angle + knob_info.angle_span;
+    let arc_radius = knob_info.radius + style.offset + half_width;
 
-        let mut frame = Frame::new(Size::new(frame_size, frame_size));
+    let half_frame_size = (arc_radius + half_width).ceil();
+    let frame_size = half_frame_size * 2.0;
+    let frame_offset = half_frame_size - knob_info.radius;
+    let center_point = Point::new(half_frame_size, half_frame_size);
 
-        if let Some(empty_color) = style.empty_color {
-            let empty_stroke = Stroke {
-                width: style.width,
-                style: canvas::Style::Solid(empty_color),
-                line_cap: style.cap,
-                ..Stroke::default()
-            };
+    let mut frame = Frame::new(renderer, Size::new(frame_size, frame_size));
 
-            let empty_arc = Arc {
-                center: center_point,
-                radius: arc_radius,
-                start_angle: knob_info.start_angle,
-                end_angle,
-            };
+    if let Some(empty_color) = style.empty_color {
+        let empty_stroke = Stroke {
+            width: style.width,
+            style: canvas::Style::Solid(empty_color),
+            line_cap: style.cap,
+            ..Stroke::default()
+        };
 
-            let empty_path = Path::new(|path| path.arc(empty_arc));
+        let empty_arc = Arc {
+            center: center_point,
+            radius: arc_radius,
+            start_angle: knob_info.start_angle,
+            end_angle,
+        };
 
-            frame.stroke(&empty_path, empty_stroke);
-        }
+        let empty_path = Path::new(|path| path.arc(empty_arc));
 
-        if let Some(right_filled_color) = style.right_filled_color {
-            if knob_info.value.as_f32() < 0.499
-                || knob_info.value.as_f32() > 0.501
-            {
-                let half_angle =
-                    knob_info.start_angle + (knob_info.angle_span / 2.0);
-
-                if knob_info.value < Normal::CENTER {
-                    let filled_stroke = Stroke {
-                        width: style.width,
-                        style: canvas::Style::Solid(style.left_filled_color),
-                        line_cap: style.cap,
-                        ..Stroke::default()
-                    };
-
-                    let filled_arc = Arc {
-                        center: center_point,
-                        radius: arc_radius,
-                        start_angle: knob_info.value_angle,
-                        end_angle: half_angle,
-                    };
-
-                    let filled_path = Path::new(|path| path.arc(filled_arc));
-
-                    frame.stroke(&filled_path, filled_stroke);
-                } else if knob_info.value > Normal::CENTER {
-                    let filled_stroke = Stroke {
-                        width: style.width,
-                        style: canvas::Style::Solid(right_filled_color),
-                        line_cap: style.cap,
-                        ..Stroke::default()
-                    };
-
-                    let filled_arc = Arc {
-                        center: center_point,
-                        radius: arc_radius,
-                        start_angle: half_angle,
-                        end_angle: knob_info.value_angle,
-                    };
-
-                    let filled_path = Path::new(|path| path.arc(filled_arc));
-
-                    frame.stroke(&filled_path, filled_stroke);
-                }
-            }
-        } else if knob_info.value != Normal::MIN {
-            let filled_stroke = Stroke {
-                width: style.width,
-                style: canvas::Style::Solid(style.left_filled_color),
-                line_cap: style.cap,
-                ..Stroke::default()
-            };
-
-            let filled_arc = Arc {
-                center: center_point,
-                radius: arc_radius,
-                start_angle: knob_info.start_angle,
-                end_angle: knob_info.value_angle,
-            };
-
-            let filled_path = Path::new(|path| path.arc(filled_arc));
-
-            frame.stroke(&filled_path, filled_stroke);
-        }
-
-        Primitive::Translate {
-            translation: Vector::new(
-                knob_info.bounds.x - frame_offset,
-                knob_info.bounds.y - frame_offset,
-            ),
-            content: Box::new(frame.into_geometry().into_primitive()),
-        }
-    } else {
-        Primitive::None
+        frame.stroke(&empty_path, empty_stroke);
     }
-}
 
-fn draw_mod_range_arc(
-    knob_info: &KnobInfo,
-    style: &Option<ModRangeArcAppearance>,
-    mod_range: Option<&ModulationRange>,
-) -> Primitive {
-    if let Some(mod_range) = mod_range {
-        if let Some(style) = style {
-            let half_width = style.width / 2.0;
-            let arc_radius = knob_info.radius + style.offset + half_width;
+    if let Some(right_filled_color) = style.right_filled_color {
+        if knob_info.value.as_f32() < 0.499 || knob_info.value.as_f32() > 0.501
+        {
+            let half_angle =
+                knob_info.start_angle + (knob_info.angle_span / 2.0);
 
-            let half_frame_size = (arc_radius + half_width).ceil();
-            let frame_size = half_frame_size * 2.0;
-            let frame_offset = half_frame_size - knob_info.radius;
-            let center_point = Point::new(half_frame_size, half_frame_size);
-
-            let mut frame = Frame::new(Size::new(frame_size, frame_size));
-
-            if let Some(empty_color) = style.empty_color {
-                let empty_stroke = Stroke {
-                    width: style.width,
-                    style: canvas::Style::Solid(empty_color),
-                    line_cap: style.cap,
-                    ..Stroke::default()
-                };
-
-                let empty_arc = Arc {
-                    center: center_point,
-                    radius: arc_radius,
-                    start_angle: knob_info.start_angle,
-                    end_angle: knob_info.start_angle + knob_info.angle_span,
-                };
-
-                let empty_path = Path::new(|path| path.arc(empty_arc));
-
-                frame.stroke(&empty_path, empty_stroke);
-            }
-
-            if mod_range.filled_visible && (mod_range.start != mod_range.end) {
-                let (start, end, color) =
-                    if mod_range.start.as_f32() < mod_range.end.as_f32() {
-                        (
-                            mod_range.start.as_f32(),
-                            mod_range.end.as_f32(),
-                            style.filled_color,
-                        )
-                    } else {
-                        (
-                            mod_range.end.as_f32(),
-                            mod_range.start.as_f32(),
-                            style.filled_inverse_color,
-                        )
-                    };
-
+            if knob_info.value < Normal::CENTER {
                 let filled_stroke = Stroke {
                     width: style.width,
-                    style: canvas::Style::Solid(color),
+                    style: canvas::Style::Solid(style.left_filled_color),
                     line_cap: style.cap,
                     ..Stroke::default()
                 };
@@ -435,33 +323,150 @@ fn draw_mod_range_arc(
                 let filled_arc = Arc {
                     center: center_point,
                     radius: arc_radius,
-                    start_angle: knob_info.start_angle
-                        + (knob_info.angle_span * start),
-                    end_angle: knob_info.start_angle
-                        + (knob_info.angle_span * end),
+                    start_angle: knob_info.value_angle,
+                    end_angle: half_angle,
+                };
+
+                let filled_path = Path::new(|path| path.arc(filled_arc));
+
+                frame.stroke(&filled_path, filled_stroke);
+            } else if knob_info.value > Normal::CENTER {
+                let filled_stroke = Stroke {
+                    width: style.width,
+                    style: canvas::Style::Solid(right_filled_color),
+                    line_cap: style.cap,
+                    ..Stroke::default()
+                };
+
+                let filled_arc = Arc {
+                    center: center_point,
+                    radius: arc_radius,
+                    start_angle: half_angle,
+                    end_angle: knob_info.value_angle,
                 };
 
                 let filled_path = Path::new(|path| path.arc(filled_arc));
 
                 frame.stroke(&filled_path, filled_stroke);
             }
-
-            Primitive::Translate {
-                translation: Vector::new(
-                    knob_info.bounds.x - frame_offset,
-                    knob_info.bounds.y - frame_offset,
-                ),
-                content: Box::new(frame.into_geometry().into_primitive()),
-            }
-        } else {
-            Primitive::None
         }
-    } else {
-        Primitive::None
+    } else if knob_info.value != Normal::MIN {
+        let filled_stroke = Stroke {
+            width: style.width,
+            style: canvas::Style::Solid(style.left_filled_color),
+            line_cap: style.cap,
+            ..Stroke::default()
+        };
+
+        let filled_arc = Arc {
+            center: center_point,
+            radius: arc_radius,
+            start_angle: knob_info.start_angle,
+            end_angle: knob_info.value_angle,
+        };
+
+        let filled_path = Path::new(|path| path.arc(filled_arc));
+
+        frame.stroke(&filled_path, filled_stroke);
     }
+
+    frame.translate(Vector::new(
+        knob_info.bounds.x - frame_offset,
+        knob_info.bounds.y - frame_offset,
+    ));
+
+    canvas::Renderer::draw(renderer, vec![frame.into_geometry()]);
 }
 
-fn draw_circle_notch(knob_info: &KnobInfo, style: &CircleNotch) -> Primitive {
+fn draw_mod_range_arc<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
+    knob_info: &KnobInfo,
+    style: &Option<ModRangeArcAppearance>,
+    mod_range: Option<&ModulationRange>,
+) {
+    let Some(mod_range) = mod_range else {
+        return;
+    };
+    let Some(style) = style else { return };
+
+    let half_width = style.width / 2.0;
+    let arc_radius = knob_info.radius + style.offset + half_width;
+
+    let half_frame_size = (arc_radius + half_width).ceil();
+    let frame_size = half_frame_size * 2.0;
+    let frame_offset = half_frame_size - knob_info.radius;
+    let center_point = Point::new(half_frame_size, half_frame_size);
+
+    let mut frame = Frame::new(renderer, Size::new(frame_size, frame_size));
+
+    if let Some(empty_color) = style.empty_color {
+        let empty_stroke = Stroke {
+            width: style.width,
+            style: canvas::Style::Solid(empty_color),
+            line_cap: style.cap,
+            ..Stroke::default()
+        };
+
+        let empty_arc = Arc {
+            center: center_point,
+            radius: arc_radius,
+            start_angle: knob_info.start_angle,
+            end_angle: knob_info.start_angle + knob_info.angle_span,
+        };
+
+        let empty_path = Path::new(|path| path.arc(empty_arc));
+
+        frame.stroke(&empty_path, empty_stroke);
+    }
+
+    if mod_range.filled_visible && (mod_range.start != mod_range.end) {
+        let (start, end, color) =
+            if mod_range.start.as_f32() < mod_range.end.as_f32() {
+                (
+                    mod_range.start.as_f32(),
+                    mod_range.end.as_f32(),
+                    style.filled_color,
+                )
+            } else {
+                (
+                    mod_range.end.as_f32(),
+                    mod_range.start.as_f32(),
+                    style.filled_inverse_color,
+                )
+            };
+
+        let filled_stroke = Stroke {
+            width: style.width,
+            style: canvas::Style::Solid(color),
+            line_cap: style.cap,
+            ..Stroke::default()
+        };
+
+        let filled_arc = Arc {
+            center: center_point,
+            radius: arc_radius,
+            start_angle: knob_info.start_angle + (knob_info.angle_span * start),
+            end_angle: knob_info.start_angle + (knob_info.angle_span * end),
+        };
+
+        let filled_path = Path::new(|path| path.arc(filled_arc));
+
+        frame.stroke(&filled_path, filled_stroke);
+    }
+
+    frame.translate(Vector::new(
+        knob_info.bounds.x - frame_offset,
+        knob_info.bounds.y - frame_offset,
+    ));
+
+    canvas::Renderer::draw(renderer, vec![frame.into_geometry()]);
+}
+
+fn draw_circle_notch<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
+    knob_info: &KnobInfo,
+    style: &CircleNotch,
+) {
     let value_angle = knob_info.value_angle + std::f32::consts::FRAC_PI_2;
 
     let (dx, dy) = if !(-0.001..=0.001).contains(&value_angle) {
@@ -477,24 +482,31 @@ fn draw_circle_notch(knob_info: &KnobInfo, style: &CircleNotch) -> Primitive {
     let offset_radius = knob_info.radius
         - style.offset.from_knob_diameter(knob_info.bounds.width);
 
-    Primitive::Quad {
-        bounds: Rectangle {
-            x: knob_info.bounds.center_x() + (dx * offset_radius)
-                - notch_radius,
-            y: knob_info.bounds.center_y()
-                - (dy * offset_radius)
-                - notch_radius,
-            width: notch_diameter,
-            height: notch_diameter,
+    advanced::Renderer::fill_quad(
+        renderer,
+        Quad {
+            bounds: Rectangle {
+                x: knob_info.bounds.center_x() + (dx * offset_radius)
+                    - notch_radius,
+                y: knob_info.bounds.center_y()
+                    - (dy * offset_radius)
+                    - notch_radius,
+                width: notch_diameter,
+                height: notch_diameter,
+            },
+            border_radius: [notch_radius; 4].into(),
+            border_width: style.border_width,
+            border_color: style.border_color,
         },
-        background: Background::Color(style.color),
-        border_radius: [notch_radius; 4],
-        border_width: style.border_width,
-        border_color: style.border_color,
-    }
+        Background::Color(style.color),
+    )
 }
 
-fn draw_line_notch(knob_info: &KnobInfo, style: &LineNotch) -> Primitive {
+fn draw_line_notch<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
+    knob_info: &KnobInfo,
+    style: &LineNotch,
+) {
     let value_angle = knob_info.value_angle + std::f32::consts::FRAC_PI_2;
 
     let stroke = Stroke {
@@ -513,8 +525,10 @@ fn draw_line_notch(knob_info: &KnobInfo, style: &LineNotch) -> Primitive {
         Point::new(0.0, stroke_begin_y + notch_height),
     );
 
-    let mut frame =
-        Frame::new(Size::new(knob_info.bounds.width, knob_info.bounds.width));
+    let mut frame = Frame::new(
+        renderer,
+        Size::new(knob_info.bounds.width, knob_info.bounds.width),
+    );
     frame.translate(Vector::new(knob_info.radius, knob_info.radius));
 
     if !(-0.001..=0.001).contains(&value_angle) {
@@ -523,139 +537,121 @@ fn draw_line_notch(knob_info: &KnobInfo, style: &LineNotch) -> Primitive {
 
     frame.stroke(&path, stroke);
 
-    Primitive::Translate {
-        translation: Vector::new(knob_info.bounds.x, knob_info.bounds.y),
-        content: Box::new(frame.into_geometry().into_primitive()),
-    }
+    frame.translate(Vector::new(knob_info.bounds.x, knob_info.bounds.y));
+
+    canvas::Renderer::draw(renderer, vec![frame.into_geometry()]);
 }
 
-fn draw_notch(knob_info: &KnobInfo, notch: &NotchShape) -> Primitive {
+fn draw_notch<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
+    knob_info: &KnobInfo,
+    notch: &NotchShape,
+) {
     match notch {
-        NotchShape::None => Primitive::None,
-        NotchShape::Circle(style) => draw_circle_notch(knob_info, style),
-        NotchShape::Line(style) => draw_line_notch(knob_info, style),
+        NotchShape::None => return,
+        NotchShape::Circle(style) => {
+            draw_circle_notch(renderer, knob_info, style)
+        }
+        NotchShape::Line(style) => draw_line_notch(renderer, knob_info, style),
     }
 }
 
-fn draw_circle_style(
+fn draw_circle_style<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     knob_info: &KnobInfo,
     style: CircleAppearance,
     value_markers: &ValueMarkers<'_>,
-    tick_marks_cache: &tick_marks::PrimitiveCache,
-    text_marks_cache: &text_marks::PrimitiveCache,
-) -> Primitive {
-    let (tick_marks, text_marks, value_arc, mod_range_arc_1, mod_range_arc_2) =
-        draw_value_markers(
-            knob_info,
-            value_markers,
-            tick_marks_cache,
-            text_marks_cache,
-        );
+    tick_marks_cache: &tick_marks::Cache,
+    text_marks_cache: &text_marks::Cache,
+) {
+    draw_value_markers(
+        renderer,
+        knob_info,
+        value_markers,
+        tick_marks_cache,
+        text_marks_cache,
+    );
 
-    let knob_back = Primitive::Quad {
-        bounds: knob_info.bounds,
-        background: Background::Color(style.color),
-        border_radius: [knob_info.radius; 4],
-        border_width: style.border_width,
-        border_color: style.border_color,
-    };
+    advanced::Renderer::fill_quad(
+        renderer,
+        Quad {
+            bounds: knob_info.bounds,
+            border_radius: [knob_info.radius; 4].into(),
+            border_width: style.border_width,
+            border_color: style.border_color,
+        },
+        Background::Color(style.color),
+    );
 
-    let notch = draw_notch(knob_info, &style.notch);
-
-    Primitive::Group {
-        primitives: vec![
-            tick_marks,
-            text_marks,
-            value_arc,
-            mod_range_arc_1,
-            mod_range_arc_2,
-            knob_back,
-            notch,
-        ],
-    }
+    draw_notch(renderer, knob_info, &style.notch);
 }
 
-fn draw_arc_style(
+fn draw_arc_style<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     knob_info: &KnobInfo,
     style: ArcAppearance,
     value_markers: &ValueMarkers<'_>,
-    tick_marks_cache: &tick_marks::PrimitiveCache,
-    text_marks_cache: &text_marks::PrimitiveCache,
-) -> Primitive {
-    let (tick_marks, text_marks, value_arc, mod_range_arc_1, mod_range_arc_2) =
-        draw_value_markers(
-            knob_info,
-            value_markers,
-            tick_marks_cache,
-            text_marks_cache,
-        );
+    tick_marks_cache: &tick_marks::Cache,
+    text_marks_cache: &text_marks::Cache,
+) {
+    draw_value_markers(
+        renderer,
+        knob_info,
+        value_markers,
+        tick_marks_cache,
+        text_marks_cache,
+    );
 
-    let arc: Primitive = {
-        let width = style.width.from_knob_diameter(knob_info.bounds.width);
+    let width = style.width.from_knob_diameter(knob_info.bounds.width);
 
-        let center_point = Point::new(knob_info.radius, knob_info.radius);
-        let arc_radius = knob_info.radius - (width / 2.0);
+    let center_point = Point::new(knob_info.radius, knob_info.radius);
+    let arc_radius = knob_info.radius - (width / 2.0);
 
-        let mut frame = Frame::new(Size::new(
-            knob_info.bounds.width,
-            knob_info.bounds.width,
-        ));
+    let mut frame = Frame::new(
+        renderer,
+        Size::new(knob_info.bounds.width, knob_info.bounds.width),
+    );
 
-        let empty_stroke = Stroke {
-            width,
-            style: canvas::Style::Solid(style.empty_color),
-            line_cap: style.cap,
-            ..Stroke::default()
-        };
-
-        let empty_arc = Arc {
-            center: center_point,
-            radius: arc_radius,
-            start_angle: knob_info.start_angle,
-            end_angle: knob_info.start_angle + knob_info.angle_span,
-        };
-
-        let empty_path = Path::new(|path| path.arc(empty_arc));
-
-        frame.stroke(&empty_path, empty_stroke);
-
-        let filled_stroke = Stroke {
-            width,
-            style: canvas::Style::Solid(style.filled_color),
-            line_cap: style.cap,
-            ..Stroke::default()
-        };
-
-        let filled_arc = Arc {
-            center: center_point,
-            radius: arc_radius,
-            start_angle: knob_info.start_angle,
-            end_angle: knob_info.value_angle,
-        };
-
-        let filled_path = Path::new(|path| path.arc(filled_arc));
-
-        frame.stroke(&filled_path, filled_stroke);
-
-        Primitive::Translate {
-            translation: Vector::new(knob_info.bounds.x, knob_info.bounds.y),
-            content: Box::new(frame.into_geometry().into_primitive()),
-        }
+    let empty_stroke = Stroke {
+        width,
+        style: canvas::Style::Solid(style.empty_color),
+        line_cap: style.cap,
+        ..Stroke::default()
     };
 
-    let notch = draw_notch(knob_info, &style.notch);
+    let empty_arc = Arc {
+        center: center_point,
+        radius: arc_radius,
+        start_angle: knob_info.start_angle,
+        end_angle: knob_info.start_angle + knob_info.angle_span,
+    };
 
-    Primitive::Group {
-        primitives: vec![
-            tick_marks,
-            text_marks,
-            arc,
-            notch,
-            value_arc,
-            mod_range_arc_1,
-            mod_range_arc_2,
-        ],
-    }
+    let empty_path = Path::new(|path| path.arc(empty_arc));
+
+    frame.stroke(&empty_path, empty_stroke);
+
+    let filled_stroke = Stroke {
+        width,
+        style: canvas::Style::Solid(style.filled_color),
+        line_cap: style.cap,
+        ..Stroke::default()
+    };
+
+    let filled_arc = Arc {
+        center: center_point,
+        radius: arc_radius,
+        start_angle: knob_info.start_angle,
+        end_angle: knob_info.value_angle,
+    };
+
+    let filled_path = Path::new(|path| path.arc(filled_arc));
+
+    frame.stroke(&filled_path, filled_stroke);
+
+    frame.translate(Vector::new(knob_info.bounds.x, knob_info.bounds.y));
+    canvas::Renderer::draw(renderer, vec![frame.into_geometry()]);
+
+    draw_notch(renderer, knob_info, &style.notch);
 }
 
 enum BipolarState {
@@ -683,126 +679,114 @@ impl BipolarState {
     }
 }
 
-fn draw_arc_bipolar_style(
+fn draw_arc_bipolar_style<Theme>(
+    renderer: &mut iced::Renderer<Theme>,
     knob_info: &KnobInfo,
     style: ArcBipolarAppearance,
     value_markers: &ValueMarkers<'_>,
-    tick_marks_cache: &tick_marks::PrimitiveCache,
-    text_marks_cache: &text_marks::PrimitiveCache,
-) -> Primitive {
-    let (tick_marks, text_marks, value_arc, mod_range_arc_1, mod_range_arc_2) =
-        draw_value_markers(
-            knob_info,
-            value_markers,
-            tick_marks_cache,
-            text_marks_cache,
-        );
+    tick_marks_cache: &tick_marks::Cache,
+    text_marks_cache: &text_marks::Cache,
+) {
+    draw_value_markers(
+        renderer,
+        knob_info,
+        value_markers,
+        tick_marks_cache,
+        text_marks_cache,
+    );
 
     let bipolar_state = BipolarState::from_knob_info(knob_info);
 
-    let arc: Primitive = {
-        let width = style.width.from_knob_diameter(knob_info.bounds.width);
+    let width = style.width.from_knob_diameter(knob_info.bounds.width);
 
-        let center_point = Point::new(knob_info.radius, knob_info.radius);
-        let arc_radius = knob_info.radius - (width / 2.0);
+    let center_point = Point::new(knob_info.radius, knob_info.radius);
+    let arc_radius = knob_info.radius - (width / 2.0);
 
-        let mut frame = Frame::new(Size::new(
-            knob_info.bounds.width,
-            knob_info.bounds.width,
-        ));
+    let mut frame = Frame::new(
+        renderer,
+        Size::new(knob_info.bounds.width, knob_info.bounds.width),
+    );
 
-        let empty_stroke = Stroke {
-            width,
-            style: canvas::Style::Solid(style.empty_color),
-            line_cap: style.cap,
-            ..Stroke::default()
-        };
-
-        let empty_arc = Arc {
-            center: center_point,
-            radius: arc_radius,
-            start_angle: knob_info.start_angle,
-            end_angle: knob_info.start_angle + knob_info.angle_span,
-        };
-
-        let empty_path = Path::new(|path| path.arc(empty_arc));
-
-        frame.stroke(&empty_path, empty_stroke);
-
-        let center_angle = knob_info.start_angle
-            + knob_info
-                .bipolar_center
-                .unwrap_or_else(|| Normal::from_clipped(0.5))
-                .scale(knob_info.angle_span);
-
-        match bipolar_state {
-            BipolarState::Left => {
-                let filled_stroke = Stroke {
-                    width,
-                    style: canvas::Style::Solid(style.left_filled_color),
-                    line_cap: style.cap,
-                    ..Stroke::default()
-                };
-
-                let filled_arc = Arc {
-                    center: center_point,
-                    radius: arc_radius,
-                    start_angle: knob_info.value_angle,
-                    end_angle: center_angle,
-                };
-
-                let filled_path = Path::new(|path| path.arc(filled_arc));
-
-                frame.stroke(&filled_path, filled_stroke);
-            }
-            BipolarState::Right => {
-                let filled_stroke = Stroke {
-                    width,
-                    style: canvas::Style::Solid(style.right_filled_color),
-                    line_cap: style.cap,
-                    ..Stroke::default()
-                };
-
-                let filled_arc = Arc {
-                    center: center_point,
-                    radius: arc_radius,
-                    start_angle: center_angle,
-                    end_angle: knob_info.value_angle,
-                };
-
-                let filled_path = Path::new(|path| path.arc(filled_arc));
-
-                frame.stroke(&filled_path, filled_stroke);
-            }
-            _ => {}
-        }
-
-        Primitive::Translate {
-            translation: Vector::new(knob_info.bounds.x, knob_info.bounds.y),
-            content: Box::new(frame.into_geometry().into_primitive()),
-        }
+    let empty_stroke = Stroke {
+        width,
+        style: canvas::Style::Solid(style.empty_color),
+        line_cap: style.cap,
+        ..Stroke::default()
     };
 
-    let notch = if let Some((notch_left, notch_right)) = style.notch_left_right
-    {
+    let empty_arc = Arc {
+        center: center_point,
+        radius: arc_radius,
+        start_angle: knob_info.start_angle,
+        end_angle: knob_info.start_angle + knob_info.angle_span,
+    };
+
+    let empty_path = Path::new(|path| path.arc(empty_arc));
+
+    frame.stroke(&empty_path, empty_stroke);
+
+    let center_angle = knob_info.start_angle
+        + knob_info
+            .bipolar_center
+            .unwrap_or_else(|| Normal::from_clipped(0.5))
+            .scale(knob_info.angle_span);
+
+    match bipolar_state {
+        BipolarState::Left => {
+            let filled_stroke = Stroke {
+                width,
+                style: canvas::Style::Solid(style.left_filled_color),
+                line_cap: style.cap,
+                ..Stroke::default()
+            };
+
+            let filled_arc = Arc {
+                center: center_point,
+                radius: arc_radius,
+                start_angle: knob_info.value_angle,
+                end_angle: center_angle,
+            };
+
+            let filled_path = Path::new(|path| path.arc(filled_arc));
+
+            frame.stroke(&filled_path, filled_stroke);
+        }
+        BipolarState::Right => {
+            let filled_stroke = Stroke {
+                width,
+                style: canvas::Style::Solid(style.right_filled_color),
+                line_cap: style.cap,
+                ..Stroke::default()
+            };
+
+            let filled_arc = Arc {
+                center: center_point,
+                radius: arc_radius,
+                start_angle: center_angle,
+                end_angle: knob_info.value_angle,
+            };
+
+            let filled_path = Path::new(|path| path.arc(filled_arc));
+
+            frame.stroke(&filled_path, filled_stroke);
+        }
+        _ => {}
+    }
+
+    frame.translate(Vector::new(knob_info.bounds.x, knob_info.bounds.y));
+    canvas::Renderer::draw(renderer, vec![frame.into_geometry()]);
+
+    if let Some((notch_left, notch_right)) = style.notch_left_right {
         match bipolar_state {
-            BipolarState::Left => draw_notch(knob_info, &notch_left),
-            BipolarState::Right => draw_notch(knob_info, &notch_right),
-            BipolarState::Center => draw_notch(knob_info, &style.notch_center),
+            BipolarState::Left => draw_notch(renderer, knob_info, &notch_left),
+            BipolarState::Right => {
+                draw_notch(renderer, knob_info, &notch_right)
+            }
+            BipolarState::Center => {
+                draw_notch(renderer, knob_info, &style.notch_center)
+            }
         }
     } else {
-        draw_notch(knob_info, &style.notch_center)
-    };
-
-    Primitive::Group {
-        primitives: vec![
-            tick_marks,
-            text_marks,
-            arc,
-            notch,
-            value_arc,
-            mod_range_arc_1,
-            mod_range_arc_2,
-        ],
+        draw_notch(renderer, knob_info, &style.notch_center)
     }
 }

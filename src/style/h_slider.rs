@@ -2,7 +2,7 @@
 //!
 //! [`HSlider`]: ../native/h_slider/struct.HSlider.html
 
-use iced_native::{image, Color, Rectangle};
+use iced_style::{image, Color, Rectangle};
 
 use crate::style::{default_colors, text_marks, tick_marks};
 

@@ -222,24 +222,20 @@ pub use crate::core::*;
 mod platform {
     #[doc(no_inline)]
     pub use crate::graphics::{
-        h_slider, knob, mod_range_input, ramp, text_marks, tick_marks,
-        v_slider, xy_pad,
+        // h_slider, knob, mod_range_input, ramp, text_marks, tick_marks,
+        // v_slider, xy_pad,
+        knob,
+        text_marks,
+        tick_marks,
     };
 
     #[doc(no_inline)]
     pub use {
-        h_slider::HSlider, knob::Knob, mod_range_input::ModRangeInput,
-        ramp::Ramp, v_slider::VSlider, xy_pad::XYPad,
+        // h_slider::HSlider, knob::Knob, mod_range_input::ModRangeInput,
+        // ramp::Ramp, v_slider::VSlider, xy_pad::XYPad,
+        knob::Knob,
     };
 }
-
-#[cfg(all(not(feature = "glow"), feature = "wgpu"))]
-use iced_wgpu as renderer;
-
-#[cfg(feature = "glow")]
-use iced_glow as renderer;
-
-use renderer::Renderer;
 
 #[doc(no_inline)]
 pub use platform::*;

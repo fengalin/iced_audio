@@ -33,7 +33,7 @@ impl Group {
     /// [`TextMark`]: struct.TextMark.html
     fn from_string(group: Vec<(Normal, String)>) -> Self {
         use std::hash::{Hash, Hasher};
-        let mut hasher = iced_native::Hasher::default();
+        let mut hasher = iced_core::Hasher::default();
         group.len().hash(&mut hasher);
 
         for text_mark in &group {

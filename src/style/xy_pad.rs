@@ -2,7 +2,7 @@
 //!
 //! [`XYPad`]: ../native/xy_pad/struct.XYPad.html
 
-use iced_native::Color;
+use iced_style::Color;
 
 use crate::style::default_colors;
 
