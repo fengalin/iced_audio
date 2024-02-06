@@ -548,7 +548,7 @@ fn draw_notch<Theme>(
     notch: &NotchShape,
 ) {
     match notch {
-        NotchShape::None => return,
+        NotchShape::None => (),
         NotchShape::Circle(style) => {
             draw_circle_notch(renderer, knob_info, style)
         }

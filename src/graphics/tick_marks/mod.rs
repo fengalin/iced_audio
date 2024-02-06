@@ -70,6 +70,7 @@ pub struct Cache {
 
 impl Cache {
     /// Cache and retrieve linear tick marks.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_cached_linear<F: FnOnce(&mut Frame), Theme>(
         &self,
         renderer: &mut iced::Renderer<Theme>,

@@ -512,11 +512,10 @@ pub fn draw_horizontal_tick_marks<Theme>(
 
                 if *inside {
                     draw_horizontal_top_aligned(
-                        &mut frame, &bounds, bounds.x, tick_marks, style,
-                        inverse,
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
                     );
                     draw_horizontal_bottom_aligned(
-                        &mut frame,
+                        frame,
                         &bounds,
                         bounds.x + bounds.width,
                         tick_marks,
@@ -525,11 +524,10 @@ pub fn draw_horizontal_tick_marks<Theme>(
                     );
                 } else {
                     draw_horizontal_bottom_aligned(
-                        &mut frame, &bounds, bounds.x, tick_marks, style,
-                        inverse,
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
                     );
                     draw_horizontal_top_aligned(
-                        &mut frame,
+                        frame,
                         &bounds,
                         bounds.x + bounds.width,
                         tick_marks,
@@ -543,13 +541,11 @@ pub fn draw_horizontal_tick_marks<Theme>(
 
                 if *inside {
                     draw_horizontal_top_aligned(
-                        &mut frame, &bounds, bounds.x, tick_marks, style,
-                        inverse,
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
                     );
                 } else {
                     draw_horizontal_bottom_aligned(
-                        &mut frame, &bounds, bounds.x, tick_marks, style,
-                        inverse,
+                        frame, &bounds, bounds.x, tick_marks, style, inverse,
                     );
                 }
             }
@@ -558,7 +554,7 @@ pub fn draw_horizontal_tick_marks<Theme>(
 
                 if *inside {
                     draw_horizontal_bottom_aligned(
-                        &mut frame,
+                        frame,
                         &bounds,
                         bounds.x + bounds.width,
                         tick_marks,
@@ -567,7 +563,7 @@ pub fn draw_horizontal_tick_marks<Theme>(
                     );
                 } else {
                     draw_horizontal_top_aligned(
-                        &mut frame,
+                        frame,
                         &bounds,
                         bounds.x + bounds.width,
                         tick_marks,
@@ -583,7 +579,7 @@ pub fn draw_horizontal_tick_marks<Theme>(
                 let bounds = offset.offset_rect(bounds);
 
                 draw_horizontal_center_aligned(
-                    &mut frame,
+                    frame,
                     &bounds,
                     bounds.center_y(),
                     tick_marks,
@@ -600,7 +596,7 @@ pub fn draw_horizontal_tick_marks<Theme>(
                 let bounds = offset.offset_rect(bounds);
 
                 draw_horizontal_center_aligned_split(
-                    &mut frame,
+                    frame,
                     &bounds,
                     bounds.center_y(),
                     tick_marks,

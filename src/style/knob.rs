@@ -3,7 +3,6 @@
 //! [`Knob`]: ../native/knob/struct.Knob.html
 
 use iced::Color;
-//use iced_style::image;
 
 pub use iced::widget::canvas::{Canvas, LineCap};
 

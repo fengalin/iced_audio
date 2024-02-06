@@ -284,7 +284,7 @@ where
 /// The local state of an [`HSlider`].
 ///
 /// [`HSlider`]: struct.HSlider.html
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct State {
     dragging_status: Option<SliderStatus>,
     prev_drag_x: f32,
@@ -376,125 +376,132 @@ where
         match event {
             Event::Mouse(mouse::Event::CursorMoved { .. })
             | Event::Touch(touch::Event::FingerMoved { .. }) => {
-                if state.dragging_status.is_some() {
-                    if let Some(position) = cursor.position() {
-                        let bounds = layout.bounds();
-                        if bounds.width > 0.0 {
-                            let normal_delta = (position.x - state.prev_drag_x)
-                                / bounds.width
-                                * -self.scalar;
-
-                            state.prev_drag_x = if position.x <= bounds.x {
-                                bounds.x
-                            } else {
-                                position.x.min(bounds.x + bounds.width)
-                            };
-
-                            if self
-                                .move_virtual_slider(state, normal_delta)
-                                .was_moved()
-                            {
-                                self.fire_on_change(shell);
-
-                                state
-                                    .dragging_status
-                                    .as_mut()
-                                    .expect("dragging_status taken")
-                                    .moved();
-                            }
-
-                            return event::Status::Captured;
-                        }
-                    }
+                if state.dragging_status.is_none() {
+                    return event::Status::Ignored;
                 }
+                let Some(position) = cursor.position() else {
+                    return event::Status::Ignored;
+                };
+
+                let bounds = layout.bounds();
+                if bounds.width <= 0.0 {
+                    return event::Status::Ignored;
+                }
+
+                let normal_delta = (position.x - state.prev_drag_x)
+                    / bounds.width
+                    * -self.scalar;
+
+                state.prev_drag_x = if position.x <= bounds.x {
+                    bounds.x
+                } else {
+                    position.x.min(bounds.x + bounds.width)
+                };
+
+                if self.move_virtual_slider(state, normal_delta).was_moved() {
+                    self.fire_on_change(shell);
+
+                    state
+                        .dragging_status
+                        .as_mut()
+                        .expect("dragging_status taken")
+                        .moved();
+                }
+
+                return event::Status::Captured;
             }
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
                 if self.wheel_scalar == 0.0 {
                     return event::Status::Ignored;
                 }
 
-                if cursor.position().is_some() {
-                    let lines = match delta {
-                        mouse::ScrollDelta::Lines { y, .. } => y,
-                        mouse::ScrollDelta::Pixels { y, .. } => {
-                            if y > 0.0 {
-                                1.0
-                            } else if y < 0.0 {
-                                -1.0
-                            } else {
-                                0.0
-                            }
+                if !cursor
+                    .position()
+                    .map_or(false, |pos| layout.bounds().contains(pos))
+                {
+                    return event::Status::Ignored;
+                }
+
+                let lines = match delta {
+                    mouse::ScrollDelta::Lines { y, .. } => y,
+                    mouse::ScrollDelta::Pixels { y, .. } => {
+                        if y > 0.0 {
+                            1.0
+                        } else if y < 0.0 {
+                            -1.0
+                        } else {
+                            0.0
                         }
-                    };
+                    }
+                };
 
-                    if lines != 0.0 {
-                        let normal_delta = -lines * self.wheel_scalar;
+                if lines == 0.0 {
+                    return event::Status::Ignored;
+                }
 
-                        if self
-                            .move_virtual_slider(state, normal_delta)
-                            .was_moved()
-                        {
-                            if state.dragging_status.is_none() {
-                                self.maybe_fire_on_grab(shell);
-                            }
+                let normal_delta = -lines * self.wheel_scalar;
 
-                            self.fire_on_change(shell);
+                if self.move_virtual_slider(state, normal_delta).was_moved() {
+                    if state.dragging_status.is_none() {
+                        self.maybe_fire_on_grab(shell);
+                    }
 
-                            if let Some(slider_status) =
-                                state.dragging_status.as_mut()
-                            {
-                                // Widget was grabbed => keep it grabbed
-                                slider_status.moved();
-                            } else {
-                                self.maybe_fire_on_release(shell);
-                            }
-                        }
+                    self.fire_on_change(shell);
 
-                        return event::Status::Captured;
+                    if let Some(slider_status) = state.dragging_status.as_mut()
+                    {
+                        // Widget was grabbed => keep it grabbed
+                        slider_status.moved();
+                    } else {
+                        self.maybe_fire_on_release(shell);
                     }
                 }
+
+                return event::Status::Captured;
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerPressed { .. }) => {
-                if let Some(position) = cursor.position() {
-                    let click = mouse::Click::new(position, state.last_click);
+                let Some(position) = cursor.position() else {
+                    return event::Status::Ignored;
+                };
+                if !layout.bounds().contains(position) {
+                    return event::Status::Ignored;
+                }
 
-                    match click.kind() {
-                        mouse::click::Kind::Single => {
-                            self.maybe_fire_on_grab(shell);
+                let click = mouse::Click::new(position, state.last_click);
 
-                            state.dragging_status = Some(Default::default());
-                            state.prev_drag_x = position.x;
-                        }
-                        _ => {
-                            // Reset to default
+                match click.kind() {
+                    mouse::click::Kind::Single => {
+                        self.maybe_fire_on_grab(shell);
 
-                            let prev_dragging_status =
-                                state.dragging_status.take();
+                        state.dragging_status = Some(Default::default());
+                        state.prev_drag_x = position.x;
+                    }
+                    _ => {
+                        // Reset to default
 
-                            if self.normal_param.value
-                                != self.normal_param.default
-                            {
-                                if prev_dragging_status.is_none() {
-                                    self.maybe_fire_on_grab(shell);
-                                }
+                        let prev_dragging_status = state.dragging_status.take();
 
-                                self.normal_param.value =
-                                    self.normal_param.default;
-
-                                self.fire_on_change(shell);
-
-                                self.maybe_fire_on_release(shell);
-                            } else if prev_dragging_status.is_some() {
-                                self.maybe_fire_on_release(shell);
+                        if self.normal_param.value != self.normal_param.default
+                        {
+                            if prev_dragging_status.is_none() {
+                                self.maybe_fire_on_grab(shell);
                             }
+
+                            self.normal_param.value = self.normal_param.default;
+
+                            self.fire_on_change(shell);
+
+                            self.maybe_fire_on_release(shell);
+                        } else if prev_dragging_status.is_some() {
+                            self.maybe_fire_on_release(shell);
                         }
                     }
-
-                    state.last_click = Some(click);
-
-                    return event::Status::Captured;
                 }
+
+                state.last_click = Some(click);
+
+                return event::Status::Captured;
             }
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
             | Event::Touch(touch::Event::FingerLifted { .. })

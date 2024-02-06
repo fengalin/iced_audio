@@ -6,8 +6,10 @@ use crate::core::{ModulationRange, Normal};
 use crate::graphics::{text_marks, tick_marks};
 use crate::native::h_slider;
 
+#[cfg(feature = "image")]
+use iced::advanced::image;
 use iced::advanced::renderer::Quad;
-use iced::advanced::{self, image, mouse};
+use iced::advanced::{self, mouse};
 use iced::{Background, Color, Rectangle};
 
 pub use crate::style::h_slider::{
@@ -88,15 +90,21 @@ where
         };
 
         match appearance {
-            Appearance::Texture(style) => draw_texture_style(
-                self,
-                normal,
-                &bounds,
-                style,
-                &value_markers,
-                tick_marks_cache,
-                text_marks_cache,
-            ),
+            Appearance::Texture(_style) => {
+                #[cfg(feature = "image")]
+                draw_texture_style(
+                    self,
+                    normal,
+                    &bounds,
+                    _style,
+                    &value_markers,
+                    tick_marks_cache,
+                    text_marks_cache,
+                );
+
+                #[cfg(not(feature = "image"))]
+                panic!("Build with 'image' feature for texture style support");
+            }
             Appearance::Classic(style) => draw_classic_style(
                 self,
                 normal,
@@ -292,6 +300,7 @@ fn draw_mod_range<Theme>(
     }
 }
 
+#[cfg(feature = "image")]
 fn draw_texture_style<Theme>(
     renderer: &mut iced::Renderer<Theme>,
     normal: Normal,

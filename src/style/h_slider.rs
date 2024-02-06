@@ -2,7 +2,9 @@
 //!
 //! [`HSlider`]: ../native/h_slider/struct.HSlider.html
 
-use iced_style::{image, Color, Rectangle};
+#[cfg(feature = "image")]
+use iced::advanced::image;
+use iced::{Color, Rectangle};
 
 use crate::style::{default_colors, text_marks, tick_marks};
 
@@ -45,6 +47,7 @@ pub struct TextureAppearance {
     /// The [`Handle`] to the image texture
     ///
     /// [`Handle`]: https://docs.rs/iced/latest/iced/pure/widget/image/struct.Handle.html
+    #[cfg(feature = "image")]
     pub image_handle: image::Handle,
     /// The effective width of the handle (not including any padding on the texture)
     pub handle_width: u16,

@@ -224,6 +224,7 @@ mod platform {
     pub use crate::graphics::{
         // h_slider, knob, mod_range_input, ramp, text_marks, tick_marks,
         // v_slider, xy_pad,
+        h_slider,
         knob,
         text_marks,
         tick_marks,
@@ -233,6 +234,7 @@ mod platform {
     pub use {
         // h_slider::HSlider, knob::Knob, mod_range_input::ModRangeInput,
         // ramp::Ramp, v_slider::VSlider, xy_pad::XYPad,
+        h_slider::HSlider,
         knob::Knob,
     };
 }

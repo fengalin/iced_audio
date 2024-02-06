@@ -24,7 +24,13 @@ members = [
 
 [features]
 default = ["wgpu"]
+
+# Build with wgpu backend.
+# iced will fallback to software rendering if no GPUs could be initialsed.
 wgpu = ["iced/wgpu"]
+
+# Build with image support: required for using widget textures is styling.
+image = ["iced/image"]
 
 [dependencies]
 iced = { version = "0.10", features = ["advanced", "canvas"] }

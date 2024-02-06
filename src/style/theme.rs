@@ -2,12 +2,10 @@
 
 use crate::core::{KnobAngleRange, Offset};
 use crate::style::{
-    default_colors, /*h_slider,*/ knob,
-    /*mod_range_input, ramp,*/ text_marks,
+    default_colors, h_slider, knob, /*mod_range_input, ramp,*/ text_marks,
     tick_marks, /*v_slider, xy_pad,*/
 };
 
-/*
 /// The style of a HSlider.
 #[derive(Default)]
 pub enum HSlider {
@@ -137,7 +135,7 @@ impl h_slider::StyleSheet for iced_style::Theme {
         }
     }
 }
-*/
+
 /// The style of a Knob.
 #[derive(Default)]
 pub enum Knob {
